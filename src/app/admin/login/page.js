@@ -22,9 +22,8 @@ export default function LoginPage() {
       console.log("1. Mengirim request ke Supabase...");
 
       // SISTEM BOM WAKTU: Kalau 10 detik Supabase tidak jawab, paksa error!
-      // Ini berguna jika koneksi diblokir oleh browser seperti Brave Shields.
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Koneksi ke server gagal (Timeout). Cek internet atau pastikan URL Supabase di .env.local sudah benar (harus pakai https://).")), 10000)
+        setTimeout(() => reject(new Error("Koneksi gagal. Cek internet atau matikan Brave Shields.")), 10000)
       );
 
       const loginPromise = supabase.auth.signInWithPassword({
@@ -35,17 +34,15 @@ export default function LoginPage() {
       // Balapan antara proses login vs waktu batas 10 detik
       const { data, error: loginError } = await Promise.race([loginPromise, timeoutPromise]);
 
-      console.log("2. Respon Supabase diterima:", data, loginError);
-
       if (loginError) throw new Error(loginError.message);
       
       if (!data || !data.user) {
-        throw new Error("Akun belum diverifikasi atau bermasalah di database!");
+        throw new Error("Akun bermasalah di database!");
       }
 
-      console.log("3. Mengecek role di tabel profiles untuk ID:", data.user.id);
+      console.log("2. Login berhasil, mengecek profil...");
       
-      // Mengambil data profile dengan maybeSingle agar tidak crash jika data belum ada
+      // Mengambil data profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
@@ -54,19 +51,26 @@ export default function LoginPage() {
         
       if (profileError) console.error("Error Cek Profil:", profileError);
 
-      console.log("4. Role ditemukan:", profile?.role);
+      // AMBIL ROLE & PAKSA JADI HURUF KECIL
+      const userRole = profile?.role?.toLowerCase() || "user";
+      console.log("3. Role ditemukan:", userRole);
 
-      // HARD REDIRECT: Menggunakan window.location.href untuk menghindari 'stuck' router Next.js
-      if (profile?.role?.toLowerCase() === "redaktur") {
-        window.location.href = "/admin/redaktur";
+      // NAVIGASI PINTAR DENGAN REPLACE (Mencegah Stuck)
+      if (userRole === "redaktur") {
+        console.log("Mengarahkan ke Meja Redaktur...");
+        window.location.replace("/admin/redaktur");
+      } else if (userRole === "admin" || userRole === "wartawan") {
+        console.log("Mengarahkan ke Input Berita...");
+        window.location.replace("/admin/input-berita");
       } else {
-        window.location.href = "/admin/input-berita";
+        console.log("Role tidak dikenal, balik ke beranda.");
+        window.location.replace("/");
       }
       
     } catch (err) {
-      console.error("LOGIN ERROR CATCH:", err);
+      console.error("LOGIN ERROR:", err);
       setError(err?.message || "Terjadi kesalahan sistem.");
-      setLoading(false); // Tombol akan kembali normal (MASUK) jika terjadi error
+      setLoading(false); 
     }
   };
 
@@ -84,7 +88,7 @@ export default function LoginPage() {
         {/* Form Login */}
         <form onSubmit={handleLogin} className="bg-white rounded-[2.5rem] p-8 shadow-2xl">
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold">
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold animate-pulse">
               {error}
             </div>
           )}
@@ -99,7 +103,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
 
@@ -112,7 +116,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
 
