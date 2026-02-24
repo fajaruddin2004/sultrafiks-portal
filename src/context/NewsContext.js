@@ -9,11 +9,9 @@ export function NewsProvider({ children }) {
     const [ads, setAds] = useState({ sidebar: { active: false, image: null } });
     const [loading, setLoading] = useState(true);
 
-    const fetchPublicNews = async () => {
+    // Tambahkan parameter retryCount untuk menghitung percobaan
+    const fetchPublicNews = async (retryCount = 0) => {
         try {
-            // Kita hilangkan setLoading(true) di sini agar saat refresh otomatis 
-            // tidak muncul loading yang mengganggu tampilan (Smooth Refresh)
-            
             const { data, error } = await supabase
                 .from('news')
                 .select(`*, profiles(full_name, avatar_url)`)
@@ -21,10 +19,14 @@ export function NewsProvider({ children }) {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                // 🔥 REVISI ANTI-ABORT: Cek apakah error karena browser memutus koneksi 🔥
-                // Ini mencegah layar merah "AbortError" muncul di localhost Bos
+                // JIKA DIPUTUS BROWSER (ABORT): JANGAN NYERAH, COBA LAGI!
                 if (error.message?.includes("aborted") || error.name === "AbortError" || error.code === "20") {
-                    console.warn("Koneksi diputus browser (Abort), mencoba tenang...");
+                    console.warn(`Koneksi diputus browser. Mencoba lagi... (Percobaan ke-${retryCount + 1})`);
+                    
+                    // Maksimal coba ulang 3 kali dengan jeda 1 detik agar browser tidak marah
+                    if (retryCount < 3) {
+                        setTimeout(() => fetchPublicNews(retryCount + 1), 1000);
+                    }
                     return; 
                 }
                 
@@ -32,9 +34,9 @@ export function NewsProvider({ children }) {
                 return;
             }
 
+            // Jika berhasil, masukkan datanya!
             setNews(data || []);
         } catch (error) {
-            // Filter agar error sistem "Abort" tidak memunculkan layar merah besar di localhost
             if (error.name !== "AbortError" && !error.message?.includes("aborted")) {
                 console.error("System error fetch news:", error.message || error);
             }
@@ -52,14 +54,12 @@ export function NewsProvider({ children }) {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'news' },
                 () => {
-                    // Update data otomatis jika ada perubahan di database
                     fetchPublicNews();
                 }
             )
             .subscribe();
 
         return () => {
-            // Bersihkan koneksi saat pindah halaman agar tidak terjadi kebocoran memori
             supabase.removeChannel(publicNewsSubscription);
         };
     }, []);
