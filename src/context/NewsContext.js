@@ -11,9 +11,9 @@ export function NewsProvider({ children }) {
 
     const fetchPublicNews = async () => {
         try {
-            setLoading(true);
+            // Kita hilangkan setLoading(true) di sini agar saat refresh otomatis 
+            // tidak muncul loading yang mengganggu tampilan (Smooth Refresh)
             
-            // REVISI 1: Sintaks Join (Relasi) disederhanakan agar tidak ditolak Supabase
             const { data, error } = await supabase
                 .from('news')
                 .select(`*, profiles(full_name, avatar_url)`)
@@ -21,14 +21,23 @@ export function NewsProvider({ children }) {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                // REVISI 2: Memaksa Supabase membongkar isi pesan error aslinya (bukan sekadar {})
+                // 🔥 REVISI ANTI-ABORT: Cek apakah error karena browser memutus koneksi 🔥
+                // Ini mencegah layar merah "AbortError" muncul di localhost Bos
+                if (error.message?.includes("aborted") || error.name === "AbortError" || error.code === "20") {
+                    console.warn("Koneksi diputus browser (Abort), mencoba tenang...");
+                    return; 
+                }
+                
                 console.error("Gagal menarik berita publik:", error.message || error);
                 return;
             }
 
             setNews(data || []);
         } catch (error) {
-            console.error("System error fetch news:", error.message || error);
+            // Filter agar error sistem "Abort" tidak memunculkan layar merah besar di localhost
+            if (error.name !== "AbortError" && !error.message?.includes("aborted")) {
+                console.error("System error fetch news:", error.message || error);
+            }
         } finally {
             setLoading(false);
         }
@@ -43,12 +52,14 @@ export function NewsProvider({ children }) {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'news' },
                 () => {
+                    // Update data otomatis jika ada perubahan di database
                     fetchPublicNews();
                 }
             )
             .subscribe();
 
         return () => {
+            // Bersihkan koneksi saat pindah halaman agar tidak terjadi kebocoran memori
             supabase.removeChannel(publicNewsSubscription);
         };
     }, []);

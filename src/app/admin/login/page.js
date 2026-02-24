@@ -19,11 +19,17 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      // --- PERBAIKAN 1: PAKSA BERSIHKAN SESI LAMA ---
+      // Ini kunci agar tidak terjadi bentrokan sesi antar browser atau device
+      await supabase.auth.signOut(); 
+      localStorage.clear(); 
+      
       console.log("1. Mengirim request ke Supabase...");
 
-      // SISTEM BOM WAKTU: Kalau 10 detik Supabase tidak jawab, paksa error!
+      // --- PERBAIKAN 2: SISTEM BOM WAKTU (TIMEOUT) ---
+      // Jika 10 detik tidak ada respon (biasanya karena diblokir Brave), paksa error
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Koneksi gagal. Cek internet atau matikan Brave Shields.")), 10000)
+        setTimeout(() => reject(new Error("Koneksi gagal. Matikan Brave Shields atau cek internet Bos!")), 10000)
       );
 
       const loginPromise = supabase.auth.signInWithPassword({
@@ -55,7 +61,7 @@ export default function LoginPage() {
       const userRole = profile?.role?.toLowerCase() || "user";
       console.log("3. Role ditemukan:", userRole);
 
-      // NAVIGASI PINTAR DENGAN REPLACE (Mencegah Stuck)
+      // --- PERBAIKAN 3: NAVIGASI AGRESIF (Mencegah Stuck) ---
       if (userRole === "redaktur") {
         console.log("Mengarahkan ke Meja Redaktur...");
         window.location.replace("/admin/redaktur");
@@ -69,8 +75,9 @@ export default function LoginPage() {
       
     } catch (err) {
       console.error("LOGIN ERROR:", err);
-      setError(err?.message || "Terjadi kesalahan sistem.");
+      // 🔥 PENTING: Mengembalikan tombol ke status "MASUK" jika gagal 🔥
       setLoading(false); 
+      setError(err?.message || "Terjadi kesalahan sistem.");
     }
   };
 
