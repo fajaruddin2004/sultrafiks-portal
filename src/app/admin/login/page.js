@@ -51,20 +51,28 @@ export default function LoginPage() {
 
       console.log("2. Login berhasil, mengecek profil...");
       
-      // Mengambil data profile
+     // Mengambil data profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
         .maybeSingle();
         
-      if (profileError) console.error("Error Cek Profil:", profileError);
+      if (profileError) {
+        console.error("Error Cek Profil:", profileError);
+        // Kalau koneksi diblokir saat ngecek profil, paksa error biar gak nyasar!
+        throw new Error("Gagal mengambil hak akses. Tolong matikan AdBlock/Shields di browser Bos!");
+      }
+
+      if (!profile || !profile.role) {
+        throw new Error("Akun ini belum diberi jabatan (Role) di database Supabase.");
+      }
 
       // AMBIL ROLE & PAKSA JADI HURUF KECIL
-      const userRole = profile?.role?.toLowerCase() || "user";
+      const userRole = profile.role.toLowerCase();
       console.log("3. Role ditemukan:", userRole);
 
-      // --- PERBAIKAN 3: NAVIGASI AGRESIF (Mencegah Stuck) ---
+      // --- NAVIGASI AGRESIF ---
       if (userRole === "redaktur") {
         console.log("Mengarahkan ke Meja Redaktur...");
         window.location.replace("/admin/redaktur");
@@ -72,8 +80,8 @@ export default function LoginPage() {
         console.log("Mengarahkan ke Input Berita...");
         window.location.replace("/admin/input-berita");
       } else {
-        console.log("Role tidak dikenal, balik ke beranda.");
-        window.location.replace("/");
+        // Jangan dilempar ke beranda, munculkan pesan error saja
+        throw new Error(`Jabatan '${userRole}' tidak dikenali sistem.`);
       }
       
     } catch (err) {
