@@ -139,11 +139,18 @@ export default function WorkspaceWartawan() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/admin/login');
+    try {
+      supabase.auth.signOut().catch(() => {});
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.replace('/admin/login');
+    } catch (error) {
+      console.error("Error saat logout:", error);
+      window.location.replace('/admin/login');
+    }
   };
 
- const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     const currentUserId = user?.id || profile?.id;
@@ -155,17 +162,14 @@ export default function WorkspaceWartawan() {
     try {
       let uploadedImageUrl = preview; 
       
-      // 1. PROSES UPLOAD GAMBAR (Diperbaiki)
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `news-${Date.now()}.${fileExt}`;
         
-        // HAPUS { upsert: true } karena di Supabase cuma ada izin INSERT
         const { error: uploadError } = await supabase.storage
           .from('news-images')
           .upload(fileName, imageFile); 
         
-        // Tangkap error upload dengan jelas
         if (uploadError) {
             console.error("Error Detail Storage:", uploadError);
             throw new Error("Gagal upload foto ke satelit: " + uploadError.message);
@@ -175,7 +179,6 @@ export default function WorkspaceWartawan() {
         uploadedImageUrl = urlData.publicUrl;
       }
 
-      // 2. PROSES SIMPAN DATABASE
       const payload = {
         title: form.title,
         content: form.content,
@@ -199,7 +202,6 @@ export default function WorkspaceWartawan() {
         alert("Gacor Bos! Berita Baru beserta Foto berhasil dikirim ke Meja Redaksi.");
       }
 
-      // Reset Form
       setForm({ id: null, title: '', content: '', photo_source: 'SultraFiks', photo_caption: '', news_link: '', category: 'Pemerintah' });
       setPreview(null);
       setImageFile(null);
@@ -207,45 +209,43 @@ export default function WorkspaceWartawan() {
       
     } catch (err) {
       console.error("ERROR KIRIM BERITA:", err);
-      // Munculkan popup alert jika gagal agar tidak stuck
       alert("TERJADI KESALAHAN:\n" + err.message);
     } finally {
-      // Tombol pasti berhenti loading
       setLoading(false); 
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 pb-20 relative">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 pb-20 relative overflow-x-hidden">
       
       {/* POP-UP MODAL DAFTAR BERITA SAYA */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
-            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="bg-white w-full max-w-4xl rounded-3xl md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-slate-200">
+            <div className="px-5 md:px-8 py-4 md:py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
-                <h2 className="text-2xl font-black italic uppercase tracking-tight text-slate-900">
+                <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tight text-slate-900">
                   {modalFilter}
                 </h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Laporan Jurnalistik Anda</p>
+                <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Laporan Jurnalistik Anda</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-white hover:bg-slate-100 rounded-full text-slate-500 transition-colors shadow-sm border border-slate-200">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 md:p-3 bg-white hover:bg-slate-100 rounded-full text-slate-500 transition-colors shadow-sm border border-slate-200">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-8 overflow-y-auto flex-1 bg-[#F8FAFC]">
+            <div className="p-5 md:p-8 overflow-y-auto flex-1 bg-[#F8FAFC]">
               {isModalLoading ? (
-                <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse">Menarik data dari satelit SultraFiks...</div>
+                <div className="py-20 text-center text-slate-400 font-bold italic animate-pulse text-sm">Menarik data dari satelit SultraFiks...</div>
               ) : modalNews.length === 0 ? (
                 <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl">
-                  <p className="text-slate-500 font-bold">Belum ada berita di kategori ini.</p>
+                  <p className="text-slate-500 font-bold text-sm">Belum ada berita di kategori ini.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 gap-4 md:gap-6">
                   {modalNews.map((item) => (
-                    <div key={item.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
-                      <div className="relative w-full md:w-48 aspect-video rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                    <div key={item.id} className="bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 md:gap-6 hover:shadow-md transition-shadow">
+                      <div className="relative w-full md:w-48 aspect-video rounded-xl md:rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
                         {item.image_url ? (
                           <Image src={item.image_url} fill className="object-cover" alt="Thumb" unoptimized/>
                         ) : (
@@ -255,20 +255,20 @@ export default function WorkspaceWartawan() {
                       
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{item.category}</span>
-                          <h3 className="text-lg font-black leading-tight text-slate-900 mt-3 line-clamp-2">{item.title}</h3>
-                          <p className="text-sm text-slate-500 mt-2 line-clamp-2">{item.content}</p>
+                          <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 md:px-3 py-1 rounded-full">{item.category}</span>
+                          <h3 className="text-base md:text-lg font-black leading-tight text-slate-900 mt-2 md:mt-3 line-clamp-2">{item.title}</h3>
+                          <p className="text-xs md:text-sm text-slate-500 mt-2 line-clamp-2">{item.content}</p>
                         </div>
                         
                         {(item.status === 'rejected' || item.status === 'revised') && (
-                          <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-                            <div className="flex gap-3 text-red-700 text-sm">
-                              <MessageSquareWarning size={18} className="shrink-0 mt-0.5" />
+                          <div className="mt-4 p-3 md:p-4 bg-red-50 border border-red-100 rounded-xl md:rounded-2xl flex flex-col md:flex-row gap-3 md:gap-4 justify-between items-start md:items-center">
+                            <div className="flex gap-2 md:gap-3 text-red-700 text-xs md:text-sm">
+                              <MessageSquareWarning size={16} className="shrink-0 mt-0.5" />
                               <p className="font-medium italic">"{item.revision_note || 'Tidak ada catatan spesifik dari Redaktur.'}"</p>
                             </div>
                             <button 
                               onClick={() => handleEditNews(item)}
-                              className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-red-500/20"
+                              className="w-full md:w-auto flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-red-500/20"
                             >
                               <Edit3 size={14} /> Revisi Sekarang
                             </button>
@@ -284,32 +284,35 @@ export default function WorkspaceWartawan() {
         </div>
       )}
 
-      {/* Navbar Atas */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Send className="text-white" size={20} />
+      {/* --- NAVBAR ATAS YANG SUDAH RESPONSIF --- */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-sm gap-2 md:gap-4">
+        
+        {/* Kiri: Logo & Teks */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+            <Send className="text-white w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <div>
-            <h1 className="font-black italic text-xl tracking-tighter text-blue-600 uppercase leading-none">
-              ADMIN SULTRAFIKS
+          <div className="hidden sm:block"> {/* Teks disembunyikan di HP sangat kecil agar tidak balapan */}
+            <h1 className="font-black italic text-sm md:text-xl tracking-tighter text-blue-600 uppercase leading-none">
+              <span className="hidden md:inline">ADMIN </span>SULTRAFIKS
             </h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Workspace Wartawan</p>
+            <p className="hidden md:block text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Workspace Wartawan</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        {/* Kanan: Tombol & Dropdown */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
           
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative shrink-0" ref={dropdownRef}>
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-3 bg-white hover:bg-slate-50 border border-slate-200 p-1.5 pr-4 rounded-full shadow-sm transition-all"
+              className="flex items-center gap-2 md:gap-3 bg-white hover:bg-slate-50 border border-slate-200 p-1 md:p-1.5 md:pr-4 rounded-full shadow-sm transition-all"
             >
-              <div className="relative w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-inner flex items-center justify-center">
+              <div className="relative w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-inner flex items-center justify-center shrink-0">
                 {profile?.avatar_url ? (
                   <Image src={profile.avatar_url} fill className="object-cover" alt="Avatar" unoptimized />
                 ) : (
-                  <User className="text-slate-400" size={16} />
+                  <User className="text-slate-400 w-3 h-3 md:w-4 md:h-4" />
                 )}
               </div>
               <div className="text-left hidden md:block">
@@ -320,28 +323,28 @@ export default function WorkspaceWartawan() {
                   {profile?.full_name || 'Menunggu Profil...'}
                 </p>
               </div>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown size={14} className={`hidden md:block text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Status Berita Saya</p>
+              <div className="absolute right-0 mt-3 w-56 md:w-64 bg-white rounded-2xl md:rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-100 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+                <div className="p-4 md:p-5 border-b border-slate-100 bg-slate-50/50">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 md:mb-4">Status Berita Saya</p>
                   
                   <div className="space-y-2">
-                    <button onClick={() => openNewsModal('Di-ACC Tayang')} className="w-full flex items-center justify-between text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
+                    <button onClick={() => openNewsModal('Di-ACC Tayang')} className="w-full flex items-center justify-between text-xs md:text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
                       <span className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500" /> Di-ACC Tayang</span>
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">{myNewsStats.published}</span>
+                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] md:text-xs">{myNewsStats.published}</span>
                     </button>
                     
-                    <button onClick={() => openNewsModal('Menunggu Review')} className="w-full flex items-center justify-between text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
+                    <button onClick={() => openNewsModal('Menunggu Review')} className="w-full flex items-center justify-between text-xs md:text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
                       <span className="flex items-center gap-2"><Clock size={14} className="text-amber-500" /> Menunggu Review</span>
-                      <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs">{myNewsStats.pending}</span>
+                      <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px] md:text-xs">{myNewsStats.pending}</span>
                     </button>
                     
-                    <button onClick={() => openNewsModal('Ditolak / Revisi')} className="w-full flex items-center justify-between text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
+                    <button onClick={() => openNewsModal('Ditolak / Revisi')} className="w-full flex items-center justify-between text-xs md:text-sm font-bold text-slate-700 hover:bg-white p-2 rounded-xl transition-all border border-transparent hover:border-slate-200 hover:shadow-sm">
                       <span className="flex items-center gap-2"><FileX size={14} className="text-red-500" /> Ditolak / Revisi</span>
-                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs animate-pulse">{myNewsStats.rejected}</span>
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[10px] md:text-xs animate-pulse">{myNewsStats.rejected}</span>
                     </button>
                   </div>
                 </div>
@@ -349,10 +352,10 @@ export default function WorkspaceWartawan() {
                 <div className="p-2">
                   <button 
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-2xl transition-colors"
+                    className="w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl md:rounded-2xl transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                      <LogOut size={14} />
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-red-100 flex items-center justify-center">
+                      <LogOut size={12} className="md:w-3.5 md:h-3.5" />
                     </div>
                     Keluar Akun
                   </button>
@@ -361,44 +364,47 @@ export default function WorkspaceWartawan() {
             )}
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+          <button className="hidden md:flex items-center gap-2 px-3 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
             <Eye size={18} /> Preview
           </button>
           
           <button 
             onClick={handleSubmit}
             disabled={loading}
-            className={`flex items-center gap-2 text-white px-6 py-2.5 rounded-full font-black italic text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 ${form.id ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'}`}
+            className={`flex items-center justify-center gap-1.5 md:gap-2 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-full font-black italic text-[9px] md:text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0 ${form.id ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'}`}
           >
-            {loading ? "MENGIRIM..." : form.id ? "KIRIM REVISI" : "KIRIM KE REDAKSI"} <Send size={14} />
+            {/* Teks panjang di laptop, disingkat di HP */}
+            <span className="hidden sm:inline">{loading ? "MENGIRIM..." : form.id ? "KIRIM REVISI" : "KIRIM KE REDAKSI"}</span>
+            <span className="sm:hidden">{loading ? "..." : form.id ? "REVISI" : "KIRIM"}</span>
+            <Send size={12} className="md:w-3.5 md:h-3.5" />
           </button>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* --- KONTEN UTAMA --- */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 mt-6 md:mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         
         {/* KOLOM KIRI: Editor Berita */}
         <div className="lg:col-span-8">
           
-          {/* KOTAK MASUK REVISI */}
           {revisedNewsList.length > 0 && !form.id && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-[2rem] p-6 shadow-sm mb-8 relative overflow-hidden animate-in slide-in-from-top-4 fade-in">
-              <div className="absolute top-0 right-0 p-4 opacity-5"><AlertCircle size={100}/></div>
-              <h3 className="font-black text-red-800 flex items-center gap-2 mb-4 relative z-10 uppercase tracking-widest">
-                <MessageSquareWarning size={20} /> ADA {revisedNewsList.length} BERITA YANG HARUS DIREVISI!
+            <div className="bg-red-50 border-2 border-red-200 rounded-3xl md:rounded-[2rem] p-5 md:p-6 shadow-sm mb-6 md:mb-8 relative overflow-hidden animate-in slide-in-from-top-4 fade-in">
+              <div className="absolute top-0 right-0 p-4 opacity-5"><AlertCircle size={80} className="md:w-[100px] md:h-[100px]"/></div>
+              <h3 className="font-black text-red-800 text-sm md:text-base flex items-center gap-2 mb-4 relative z-10 uppercase tracking-widest">
+                <MessageSquareWarning size={18} className="md:w-5 md:h-5" /> ADA {revisedNewsList.length} BERITA YANG HARUS DIREVISI!
               </h3>
               
-              <div className="space-y-4 relative z-10">
+              <div className="space-y-3 md:space-y-4 relative z-10">
                 {revisedNewsList.map((item) => (
-                  <div key={item.id} className="bg-white p-5 rounded-2xl border border-red-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm hover:shadow transition-shadow">
-                    <div className="flex-1">
-                      <span className="text-[10px] font-black bg-red-100 text-red-600 px-2 py-1 rounded uppercase tracking-widest mb-2 inline-block">Catatan Redaktur</span>
-                      <h4 className="font-black text-slate-900 text-base line-clamp-1">{item.title}</h4>
-                      <p className="text-sm text-red-700 font-medium italic mt-2 bg-red-50 p-3 rounded-xl">"{item.revision_note || 'Harap perbaiki berita ini sesuai standar jurnalistik.'}"</p>
+                  <div key={item.id} className="bg-white p-4 md:p-5 rounded-2xl border border-red-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4 shadow-sm hover:shadow transition-shadow">
+                    <div className="flex-1 w-full">
+                      <span className="text-[9px] md:text-[10px] font-black bg-red-100 text-red-600 px-2 py-1 rounded uppercase tracking-widest mb-2 inline-block">Catatan Redaktur</span>
+                      <h4 className="font-black text-slate-900 text-sm md:text-base line-clamp-1">{item.title}</h4>
+                      <p className="text-xs md:text-sm text-red-700 font-medium italic mt-2 bg-red-50 p-2 md:p-3 rounded-xl">"{item.revision_note || 'Harap perbaiki berita ini sesuai standar jurnalistik.'}"</p>
                     </div>
                     <button 
                       onClick={() => handleEditNews(item)} 
-                      className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest rounded-xl whitespace-nowrap shadow-lg shadow-red-500/20 active:scale-95 transition-all"
+                      className="w-full sm:w-auto px-4 md:px-6 py-2.5 md:py-3 bg-red-600 hover:bg-red-700 text-white text-[10px] md:text-xs font-black uppercase tracking-widest rounded-xl whitespace-nowrap shadow-lg shadow-red-500/20 active:scale-95 transition-all"
                     >
                       Edit Sekarang
                     </button>
@@ -408,76 +414,76 @@ export default function WorkspaceWartawan() {
             </div>
           )}
 
-          <div className={`bg-white rounded-[2rem] p-8 shadow-xl shadow-slate-200/50 border min-h-[700px] flex flex-col transition-colors ${form.id ? 'border-amber-300 ring-4 ring-amber-50' : 'border-slate-100'}`}>
+          <div className={`bg-white rounded-3xl md:rounded-[2rem] p-5 md:p-8 shadow-xl shadow-slate-200/50 border min-h-[500px] md:min-h-[700px] flex flex-col transition-colors ${form.id ? 'border-amber-300 ring-2 md:ring-4 ring-amber-50' : 'border-slate-100'}`}>
             
             {form.id && (
-              <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm font-bold animate-in fade-in">
-                <div className="flex items-center gap-3">
-                  <Edit3 size={18} className="animate-pulse shrink-0"/> 
-                  <span>Mode Perbaikan Berita: Anda sedang merevisi berita yang ditolak.</span>
+              <div className="mb-5 md:mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-3 md:px-4 py-2.5 md:py-3 rounded-xl md:rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs md:text-sm font-bold animate-in fade-in">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <Edit3 size={16} className="animate-pulse shrink-0 md:w-[18px] md:h-[18px]"/> 
+                  <span>Mode Perbaikan: Anda sedang merevisi berita.</span>
                 </div>
-                <button onClick={() => {setForm({id:null, title:'', content:'', photo_source:'SultraFiks', photo_caption:'', news_link:'', category:'Pemerintah'}); setPreview(null);}} className="text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 px-3 py-1 rounded-lg transition-colors whitespace-nowrap">Batal Edit</button>
+                <button onClick={() => {setForm({id:null, title:'', content:'', photo_source:'SultraFiks', photo_caption:'', news_link:'', category:'Pemerintah'}); setPreview(null);}} className="text-[10px] md:text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Batal Edit</button>
               </div>
             )}
 
-            <div className="flex items-center gap-6 pb-6 border-b border-slate-100 mb-6 text-sm font-bold text-slate-500">
-              <button onClick={insertQuote} className="flex items-center gap-2 hover:text-blue-600 transition-colors">
-                <Quote size={18} /> Kutipan
+            <div className="flex items-center gap-4 md:gap-6 pb-4 md:pb-6 border-b border-slate-100 mb-4 md:mb-6 text-xs md:text-sm font-bold text-slate-500 overflow-x-auto no-scrollbar">
+              <button onClick={insertQuote} className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
+                <Quote size={16} className="md:w-[18px] md:h-[18px]" /> Kutipan
               </button>
-              <button className="flex items-center gap-2 hover:text-blue-600 transition-colors">
-                <Type size={18} /> Format Teks
+              <button className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
+                <Type size={16} className="md:w-[18px] md:h-[18px]" /> Format Teks
               </button>
             </div>
 
             <input 
               type="text" 
-              placeholder="Masukkan Judul Berita Utama..." 
+              placeholder="Judul Berita Utama..." 
               value={form.title}
               onChange={(e) => setForm({...form, title: e.target.value})}
-              className="w-full text-4xl font-black text-slate-900 placeholder:text-slate-200 outline-none mb-6 bg-transparent"
+              className="w-full text-2xl md:text-4xl font-black text-slate-900 placeholder:text-slate-200 outline-none mb-4 md:mb-6 bg-transparent"
             />
 
             <textarea 
               ref={contentRef}
-              placeholder="Mulai menulis berita di sini. Gunakan '>' di awal baris untuk membuat kutipan otomatis..."
+              placeholder="Mulai menulis berita di sini..."
               value={form.content}
               onChange={(e) => setForm({...form, content: e.target.value})}
-              className="w-full flex-1 resize-none text-lg text-slate-700 leading-relaxed placeholder:text-slate-300 outline-none bg-transparent"
+              className="w-full flex-1 resize-none text-base md:text-lg text-slate-700 leading-relaxed placeholder:text-slate-300 outline-none bg-transparent"
             />
           </div>
         </div>
 
         {/* KOLOM KANAN: Asset Properties */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 sticky top-28">
+        <div className="lg:col-span-4 space-y-4 md:space-y-6">
+          <div className="bg-white rounded-3xl md:rounded-[2rem] p-5 md:p-6 shadow-xl shadow-slate-200/50 border border-slate-100 lg:sticky top-24 md:top-28">
             
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black italic text-sm uppercase tracking-widest flex items-center gap-2 text-slate-800">
-                <Settings size={18} className="text-blue-600" /> PROPERTI BERITA
+            <div className="flex items-center justify-between mb-5 md:mb-8">
+              <h3 className="font-black italic text-xs md:text-sm uppercase tracking-widest flex items-center gap-2 text-slate-800">
+                <Settings size={16} className="text-blue-600 md:w-[18px] md:h-[18px]" /> PROPERTI BERITA
               </h3>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5 md:space-y-6">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori Utama</label>
+                <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kategori Utama</label>
                 <select 
                   value={form.category}
                   onChange={(e) => setForm({...form, category: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20 appearance-none cursor-pointer"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl px-3 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20 appearance-none cursor-pointer"
                 >
                   {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Thumbnail Berita</label>
-                <label className="relative block w-full aspect-video rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group">
+                <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Thumbnail Berita</label>
+                <label className="relative block w-full aspect-video rounded-xl md:rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group">
                   {preview ? (
                     <Image src={preview} fill className="object-cover" alt="Preview" unoptimized />
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-blue-500">
-                      <UploadCloud size={32} />
-                      <span className="text-xs font-bold mt-2">Pilih Foto</span>
+                      <UploadCloud size={28} className="md:w-8 md:h-8" />
+                      <span className="text-[10px] md:text-xs font-bold mt-2">Pilih Foto</span>
                     </div>
                   )}
                   <input type="file" className="hidden" accept="image/*" onChange={(e) => {
@@ -487,42 +493,42 @@ export default function WorkspaceWartawan() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><ImageIcon size={10}/> Sumber Foto</label>
+                  <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1"><ImageIcon size={10}/> Sumber Foto</label>
                   <input 
                     type="text" 
                     value={form.photo_source}
                     placeholder="SultraFiks / Antara"
                     onChange={(e) => setForm({...form, photo_source: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><LinkIcon size={10}/> Link Terkait</label>
+                  <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1"><LinkIcon size={10}/> Link Terkait</label>
                   <input 
                     type="text" 
                     value={form.news_link}
                     placeholder="https://..."
                     onChange={(e) => setForm({...form, news_link: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1"><Info size={10}/> Penjelasan Foto (Caption)</label>
+                <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1"><Info size={10}/> Penjelasan Foto (Caption)</label>
                 <textarea 
                   value={form.photo_caption}
                   placeholder="Deskripsikan momen di dalam foto..."
                   onChange={(e) => setForm({...form, photo_caption: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 ring-blue-500/20 resize-none h-[80px]"
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-medium text-slate-700 outline-none focus:ring-2 ring-blue-500/20 resize-none h-[60px] md:h-[80px]"
                 />
               </div>
 
-              <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status Saat Ini</span>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${loading ? 'bg-blue-100 text-blue-700' : form.id ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+              <div className="pt-4 md:pt-6 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">Status</span>
+                <span className={`px-2 md:px-3 py-1 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${loading ? 'bg-blue-100 text-blue-700' : form.id ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${loading ? 'bg-blue-500' : form.id ? 'bg-amber-500' : 'bg-slate-400'}`}/> 
                   {loading ? 'Memproses...' : form.id ? 'Mode Revisi' : 'Draft Baru'}
                 </span>
