@@ -19,10 +19,13 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // --- PERBAIKAN 1: PAKSA BERSIHKAN SESI LAMA ---
-      // Ini kunci agar tidak terjadi bentrokan sesi antar browser atau device
-      await supabase.auth.signOut(); 
+      // --- PERBAIKAN FINAL: JANGAN PAKAI 'AWAIT' DI SINI ---
+      // Biarkan fungsi signOut berjalan di latar belakang tanpa menghentikan login
+      supabase.auth.signOut().catch(() => {}); 
+      
+      // Hapus semua jejak sesi lama di browser secara paksa dan instan
       localStorage.clear(); 
+      sessionStorage.clear();
       
       console.log("1. Mengirim request ke Supabase...");
 
