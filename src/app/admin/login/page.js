@@ -19,20 +19,15 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // --- PERBAIKAN FINAL: JANGAN PAKAI 'AWAIT' DI SINI ---
-      // Biarkan fungsi signOut berjalan di latar belakang tanpa menghentikan login
-      supabase.auth.signOut().catch(() => {}); 
-      
-      // Hapus semua jejak sesi lama di browser secara paksa dan instan
-      localStorage.clear(); 
-      sessionStorage.clear();
-      
       console.log("1. Mengirim request ke Supabase...");
 
-      // --- PERBAIKAN 2: SISTEM BOM WAKTU (TIMEOUT) ---
-      // Jika 10 detik tidak ada respon (biasanya karena diblokir Brave), paksa error
+      // 🔥 PERBAIKAN 1: Tukang Sapu dihapus dari sini agar tidak memotong sesi baru di HP.
+      // Biarkan Supabase otomatis menimpa sesi lama dengan yang baru.
+
+      // 🔥 PERBAIKAN 2: BOM WAKTU DITAMBAH JADI 20 DETIK
+      // Jaringan HP (Telkomsel/Indosat dll) kadang butuh waktu lebih lama untuk merespons
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Koneksi gagal. Matikan Brave Shields atau cek internet Bos!")), 10000)
+        setTimeout(() => reject(new Error("Koneksi lambat atau gagal. Pastikan sinyal HP bagus Bos!")), 20000)
       );
 
       const loginPromise = supabase.auth.signInWithPassword({
@@ -40,7 +35,7 @@ export default function LoginPage() {
         password,
       });
 
-      // Balapan antara proses login vs waktu batas 10 detik
+      // Balapan antara proses login vs waktu batas 20 detik
       const { data, error: loginError } = await Promise.race([loginPromise, timeoutPromise]);
 
       if (loginError) throw new Error(loginError.message);
@@ -51,7 +46,7 @@ export default function LoginPage() {
 
       console.log("2. Login berhasil, mengecek profil...");
       
-     // Mengambil data profile
+      // Mengambil data profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
@@ -60,8 +55,8 @@ export default function LoginPage() {
         
       if (profileError) {
         console.error("Error Cek Profil:", profileError);
-        // Kalau koneksi diblokir saat ngecek profil, paksa error biar gak nyasar!
-        throw new Error("Gagal mengambil hak akses. Tolong matikan AdBlock/Shields di browser Bos!");
+        // Kalau koneksi putus saat ngecek profil, paksa error biar gak nyasar!
+        throw new Error("Gagal mengambil hak akses. Sinyal putus atau database menolak.");
       }
 
       if (!profile || !profile.role) {
