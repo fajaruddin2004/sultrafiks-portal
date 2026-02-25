@@ -1,17 +1,21 @@
-import type { NextConfig } from "next";
+import type { Config } from "tailwindcss";
 
-const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'wtfxxqxcogspzdtwamrq.supabase.co',
-        pathname: '/storage/v1/object/public/**',
+const config: Config = {
+  darkMode: "class", // INI KUNCI UTAMANYA BOS!
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
       },
-    ],
-    // Paksa abaikan optimasi gambar untuk menghindari error IP privat di terminal Bos
-    unoptimized: true,
+    },
   },
+  plugins: [],
 };
 
-export default nextConfig;
+export default config;

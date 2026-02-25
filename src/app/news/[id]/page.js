@@ -3,12 +3,13 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
+import { supabase } from '@/lib/supabase'; // 🔥 IMPORT SUPABASE PENTING
 import { useNews } from '@/context/NewsContext'; 
 import { useParams, useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Bot, Send, Minus, Plus, Bookmark, Quote, TrendingUp,
     BadgeCheck, Zap, X, Volume2, VolumeX, Heart, MessageCircle, 
-    Facebook, Twitter, Youtube, Hash, Home, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2 
+    Facebook, Twitter, Youtube, Hash, Home, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2, User 
 } from 'lucide-react'; 
 import Link from 'next/link';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
@@ -31,30 +32,34 @@ const timeAgo = (dateString) => {
     return '';
 };
 
-// --- FUNGSI FORMAT TANGGAL ---
-const formatIndonesianDate = (isoString) => {
-    if (!isoString) return "Tanggal tidak diketahui";
-    const date = new Date(isoString);
-    return date.toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' });
-};
-
 export default function NewsDetail() {
     const params = useParams();
     const router = useRouter();
     const { news } = useNews(); 
     
     const chatEndRef = useRef(null); 
+    const commentSectionRef = useRef(null); // Ref untuk scroll ke komentar
+
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [relatedNews, setRelatedNews] = useState([]);
 
     const [fontSize, setFontSize] = useState(18); 
     const [isSaved, setIsSaved] = useState(false);
-    const [isLiked, setIsLiked] = useState(false);
     
-    // STATE UNTUK NOTIFIKASI POP-UP (TOAST)
+    // --- STATE DATABASE (LIKE & KOMEN) ---
+    const [likesCount, setLikesCount] = useState(10); // Default 10 sesuai request
+    const [isLiked, setIsLiked] = useState(false);
+    const [comments, setComments] = useState([]);
+    
+    // State Form Komentar
+    const [commentForm, setCommentForm] = useState({ name: '', content: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Toast Notification
     const [toast, setToast] = useState({ show: false, message: '' });
     
+    // AI Chat State
     const [isAIChatOpen, setIsAIChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState([{ role: 'ai', text: 'Halo! Saya AI SultraFiks. Ada yang ingin Anda tanyakan tentang berita ini?' }]);
     const [userInput, setUserInput] = useState("");
@@ -64,6 +69,7 @@ export default function NewsDetail() {
     const { scrollYProgress } = useScroll();
     const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
+    // 1. FETCH ARTIKEL UTAMA (DARI CONTEXT)
     useEffect(() => {
         if (!params.id || news.length === 0) return;
         const targetId = String(params.id);
@@ -72,49 +78,149 @@ export default function NewsDetail() {
         if (found) {
             setArticle(found);
             setRelatedNews(news.filter(item => item.category === found.category && String(item.id) !== targetId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4));
+            setLoading(false);
+        } else {
+            // Fallback fetch jika direct link dan context belum siap
+            const fetchDirect = async () => {
+                const { data } = await supabase.from('news').select('*').eq('id', targetId).single();
+                if(data) {
+                    setArticle(data);
+                    setLoading(false);
+                }
+            }
+            fetchDirect();
         }
-        setLoading(false);
     }, [params.id, news]);
+
+    // 2. FETCH LIVE DATA (LIKES & COMMENTS DARI SUPABASE)
+    useEffect(() => {
+        if (!params.id) return;
+
+        const fetchInteractions = async () => {
+            // Ambil Like Terkini
+            const { data: newsData } = await supabase
+                .from('news')
+                .select('likes_count')
+                .eq('id', params.id)
+                .single();
+            
+            if (newsData) {
+                setLikesCount(newsData.likes_count || 10);
+            }
+
+            // Ambil Daftar Komentar
+            const { data: commentsData } = await supabase
+                .from('comments')
+                .select('*')
+                .eq('news_id', params.id)
+                .order('created_at', { ascending: false });
+            
+            if (commentsData) {
+                setComments(commentsData);
+            }
+        };
+
+        fetchInteractions();
+
+        // Cek LocalStorage apakah user ini sudah pernah like berita ini (biar gak spam like)
+        const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
+        if (likedHistory.includes(params.id)) {
+            setIsLiked(true);
+        }
+
+    }, [params.id]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, isAIChatOpen]);
 
-    // FUNGSI MENAMPILKAN NOTIFIKASI
     const showToast = (message) => {
         setToast({ show: true, message });
         setTimeout(() => setToast({ show: false, message: '' }), 3000);
     };
 
-    // FUNGSI SHARE SOSIAL MEDIA AKTIF
+    // --- LOGIC TOMBOL LIKE ---
+    const handleLikeClick = async () => {
+        if (isLiked) {
+            showToast("Anda sudah menyukai berita ini! ❤️");
+            return;
+        }
+
+        // Optimistic UI Update (Langsung update angka di layar biar cepat)
+        const newCount = likesCount + 1;
+        setLikesCount(newCount);
+        setIsLiked(true);
+        showToast("Terima kasih atas apresiasinya! ❤️");
+
+        // Simpan ke LocalStorage agar tidak reset saat refresh
+        const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
+        likedHistory.push(params.id);
+        localStorage.setItem('liked_articles', JSON.stringify(likedHistory));
+
+        // Update ke Database Supabase
+        await supabase
+            .from('news')
+            .update({ likes_count: newCount })
+            .eq('id', params.id);
+    };
+
+    // --- LOGIC SCROLL KE KOMEN ---
+    const scrollToComments = () => {
+        commentSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    // --- LOGIC KIRIM KOMENTAR ---
+    const handlePostComment = async (e) => {
+        e.preventDefault();
+        if (!commentForm.name.trim() || !commentForm.content.trim()) {
+            return showToast("Nama dan komentar wajib diisi! ✍️");
+        }
+
+        setIsSubmitting(true);
+
+        try {
+            // Kirim ke Supabase
+            const { data, error } = await supabase
+                .from('comments')
+                .insert([
+                    {
+                        news_id: params.id,
+                        user_name: commentForm.name,
+                        content: commentForm.content
+                    }
+                ])
+                .select();
+
+            if (error) throw error;
+
+            // Update UI langsung
+            if (data) {
+                setComments([data[0], ...comments]);
+                setCommentForm({ name: '', content: '' }); // Reset form
+                showToast("Komentar berhasil dikirim! 💬");
+            }
+
+        } catch (error) {
+            console.error("Error komentar:", error);
+            showToast("Gagal mengirim komentar. Coba lagi.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // FUNGSI SHARE
     const handleShare = (platform) => {
         const currentUrl = window.location.href;
         const shareText = `Baca berita terbaru: ${article?.title} di SultraFiks!`;
-
         let url = '';
         switch(platform) {
-            case 'facebook': 
-                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`; 
-                break;
-            case 'twitter': 
-                url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(shareText)}`; 
-                break;
-            case 'whatsapp': 
-                url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + currentUrl)}`; 
-                break;
+            case 'facebook': url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`; break;
+            case 'twitter': url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(shareText)}`; break;
+            case 'whatsapp': url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + currentUrl)}`; break;
             case 'copy':
                 navigator.clipboard.writeText(currentUrl);
                 showToast("Tautan berita berhasil disalin! 🔗");
                 return;
         }
         if(url) window.open(url, '_blank', 'width=600,height=400');
-    };
-
-    const handleLikeClick = () => {
-        setIsLiked(!isLiked);
-        if (!isLiked) showToast("Anda menyukai berita ini! ❤️");
-    };
-
-    const handleCommentClick = () => {
-        showToast("Fitur komentar akan segera hadir! 💬");
     };
 
     const handleAISpeakNews = () => {
@@ -152,11 +258,10 @@ export default function NewsDetail() {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-white"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
     if (!article) return <div className="min-h-screen flex items-center justify-center text-slate-400 font-bold uppercase tracking-widest">Memuat Berita SultraFiks...</div>;
 
-    // Generate smart tags dari judul/kategori (karena di DB tidak ada tabel tag khusus)
     const smartTags = ['Kendari', 'SultraFiks', article.category, 'Berita Terkini'];
 
     return (
-        <div className="min-h-screen bg-white font-sans text-slate-900 pb-20 md:pb-0 relative">
+        <div className="min-h-screen bg-white font-sans text-slate-900 pb-24 md:pb-0 relative">
             <motion.div className="fixed top-0 left-0 right-0 h-1.5 bg-blue-600 origin-left z-[60]" style={{ scaleX }} />
 
             {/* KOMPONEN POP-UP TOAST */}
@@ -189,11 +294,13 @@ export default function NewsDetail() {
             <main className="max-w-5xl mx-auto px-4 py-8 pb-20">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
                     <div className="lg:col-span-8">
+                        {/* KATEGORI & JUDUL */}
                         <div className="flex items-center gap-2 text-xs font-bold text-blue-600 mb-4 uppercase">
                             <span className="bg-blue-50 px-2 py-1 rounded">News</span> / <span>{article?.category || 'Utama'}</span>
                         </div>
                         <h1 className="text-3xl md:text-5xl font-black leading-tight mb-6 tracking-tight">{article?.title}</h1>
                         
+                        {/* INFO PENULIS & WAKTU */}
                         <div className="flex items-center justify-between border-b border-slate-100 pb-6 mb-8">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0">
@@ -225,12 +332,10 @@ export default function NewsDetail() {
                                 >
                                     <Bookmark className={`w-6 h-6 transition-colors ${isSaved ? 'fill-yellow-500 text-yellow-500' : 'text-slate-400 group-hover:text-blue-500'}`}/>
                                 </motion.button>
-                                <span className={`absolute top-full mt-2 right-0 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white px-2 py-1 rounded-md ${isSaved ? 'text-yellow-500' : 'text-slate-200'}`}>
-                                    {isSaved ? 'Tersimpan' : 'Simpan Berita'}
-                                </span>
                             </div>
                         </div>
 
+                        {/* GAMBAR UTAMA */}
                         <div className="mb-2 rounded-3xl overflow-hidden shadow-2xl bg-slate-100 relative w-full aspect-video">
                             {article?.image_url ? (
                                 <img src={article.image_url} className="w-full h-full object-cover" alt={article?.title} />
@@ -246,6 +351,7 @@ export default function NewsDetail() {
                             {article?.photo_source && <p className="font-bold uppercase tracking-widest text-slate-400">Foto: {article.photo_source}</p>}
                         </div>
 
+                        {/* ISI BERITA */}
                         <article className="prose prose-lg max-w-none mb-12 text-slate-800" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
                             {article?.content?.split('\n').map((p, i) => {
                                 if (!p.trim()) return null;
@@ -265,10 +371,10 @@ export default function NewsDetail() {
                             })}
                         </article>
 
-                        {/* --- BAGIAN BAWAH BERITA (SESUAI REQUEST BOS) --- */}
+                        {/* BAGIAN BAWAH (TAGS & ENGAGEMENT) */}
                         <div className="mt-12 pt-8 border-t border-slate-100">
                             
-                            {/* TAGS BISA DIKLIK */}
+                            {/* TAGS */}
                             <div className="flex flex-wrap gap-2 mb-8">
                                 {smartTags.map((tag) => (
                                     <button 
@@ -281,50 +387,102 @@ export default function NewsDetail() {
                                 ))}
                             </div>
 
-                            {/* ENGAGEMENT & SHARE */}
+                            {/* TOMBOL LIKE & KOMENTAR & SHARE */}
                             <div className="flex flex-col sm:flex-row justify-between items-center gap-6 py-6 border-y border-slate-100 mb-10">
                                 
                                 <div className="flex items-center gap-6">
+                                    {/* LIKE BUTTON (CONNECT DB) */}
                                     <motion.button 
                                         whileTap={{ scale: 0.8 }}
                                         onClick={handleLikeClick} 
-                                        className="flex items-center gap-2 group"
+                                        className="flex items-center gap-2 group cursor-pointer"
                                     >
                                         <Heart className={`w-8 h-8 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110 drop-shadow-md' : 'text-slate-400 group-hover:text-red-500'}`} />
                                         <span className={`font-black text-lg transition-colors ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>
-                                            {isLiked ? 299 : 298}
+                                            {likesCount}
                                         </span>
                                     </motion.button>
                                     
+                                    {/* SCROLL TO COMMENT */}
                                     <motion.button 
                                         whileTap={{ scale: 0.9 }}
-                                        onClick={handleCommentClick}
-                                        className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group"
+                                        onClick={scrollToComments}
+                                        className="flex items-center gap-2 text-slate-400 hover:text-blue-600 transition-colors group cursor-pointer"
                                     >
                                         <MessageCircle className="w-8 h-8 group-hover:fill-blue-50" />
-                                        <span className="font-black text-lg text-slate-500 group-hover:text-blue-600">12</span>
+                                        <span className="font-black text-lg text-slate-500 group-hover:text-blue-600">{comments.length}</span>
                                     </motion.button>
                                 </div>
 
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs font-black uppercase tracking-widest text-slate-400 mr-2">Bagikan:</span>
-                                    
-                                    {/* TOMBOL SHARE AKTIF */}
-                                    <button onClick={() => handleShare('facebook')} className="p-3 bg-slate-100 text-slate-600 hover:bg-[#1877F2] hover:text-white rounded-full transition-all hover:shadow-lg hover:shadow-blue-500/30">
-                                        <Facebook className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => handleShare('twitter')} className="p-3 bg-slate-100 text-slate-600 hover:bg-[#1DA1F2] hover:text-white rounded-full transition-all hover:shadow-lg hover:shadow-sky-500/30">
-                                        <Twitter className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => handleShare('whatsapp')} className="p-3 bg-slate-100 text-slate-600 hover:bg-[#25D366] hover:text-white rounded-full transition-all hover:shadow-lg hover:shadow-green-500/30">
-                                        {/* Zap dipakai sebagai ikon fast share/WA sesuai foto Bos */}
-                                        <Zap className="w-5 h-5" />
-                                    </button>
-                                    <button onClick={() => handleShare('copy')} className="p-3 bg-slate-100 text-slate-600 hover:bg-slate-800 hover:text-white rounded-full transition-all hover:shadow-lg">
-                                        <LinkIcon className="w-5 h-5" />
-                                    </button>
+                                    <button onClick={() => handleShare('facebook')} className="p-3 bg-slate-100 text-slate-600 hover:bg-[#1877F2] hover:text-white rounded-full transition-all hover:shadow-lg hover:shadow-blue-500/30"><Facebook className="w-5 h-5" /></button>
+                                    <button onClick={() => handleShare('whatsapp')} className="p-3 bg-slate-100 text-slate-600 hover:bg-[#25D366] hover:text-white rounded-full transition-all hover:shadow-lg hover:shadow-green-500/30"><Zap className="w-5 h-5" /></button>
+                                    <button onClick={() => handleShare('copy')} className="p-3 bg-slate-100 text-slate-600 hover:bg-slate-800 hover:text-white rounded-full transition-all hover:shadow-lg"><LinkIcon className="w-5 h-5" /></button>
                                 </div>
                             </div>
+
+                            {/* --- SEKSI KOMENTAR (BARU) --- */}
+                            <div ref={commentSectionRef} className="bg-slate-50 rounded-[2rem] p-6 md:p-8 border border-slate-100">
+                                <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                                    <MessageCircle className="text-blue-600"/> Diskusi Pembaca <span className="text-slate-400 text-sm font-bold">({comments.length})</span>
+                                </h3>
+
+                                {/* Form Input Komentar */}
+                                <form onSubmit={handlePostComment} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Nama Anda</label>
+                                            <input 
+                                                type="text" 
+                                                value={commentForm.name}
+                                                onChange={(e) => setCommentForm({...commentForm, name: e.target.value})}
+                                                placeholder="Tulis nama panggilan..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Komentar</label>
+                                            <textarea 
+                                                value={commentForm.content}
+                                                onChange={(e) => setCommentForm({...commentForm, content: e.target.value})}
+                                                placeholder="Bagaimana pendapat Anda tentang berita ini?"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24"
+                                            ></textarea>
+                                        </div>
+                                        <button 
+                                            type="submit" 
+                                            disabled={isSubmitting}
+                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 rounded-xl uppercase tracking-widest text-xs transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isSubmitting ? 'Mengirim...' : 'Kirim Komentar'}
+                                        </button>
+                                    </div>
+                                </form>
+
+                                {/* Daftar Komentar */}
+                                <div className="space-y-4">
+                                    {comments.length === 0 ? (
+                                        <p className="text-center text-slate-400 text-sm font-medium py-4">Belum ada komentar. Jadilah yang pertama!</p>
+                                    ) : (
+                                        comments.map((comment) => (
+                                            <div key={comment.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-4">
+                                                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center shrink-0">
+                                                    <User className="text-slate-400 w-5 h-5"/>
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h4 className="font-bold text-slate-900 text-sm">{comment.user_name}</h4>
+                                                        <span className="text-[10px] text-slate-400 font-bold">• {timeAgo(comment.created_at)}</span>
+                                                    </div>
+                                                    <p className="text-slate-600 text-sm leading-relaxed">{comment.content}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -365,6 +523,7 @@ export default function NewsDetail() {
                 </div>
             </main>
 
+            {/* FOOTER */}
             <footer className="bg-slate-900 text-white pt-16 pb-8 px-4">
                 <div className="max-w-5xl mx-auto">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
@@ -404,11 +563,11 @@ export default function NewsDetail() {
             <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-xl border-t border-slate-100 px-6 py-3 pb-6 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                 <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleLikeClick}>
                     <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-slate-400 group-hover:text-red-500'}`} />
-                    <span className={`text-[10px] font-bold ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{isLiked ? 299 : 298}</span>
+                    <span className={`text-[10px] font-bold ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{likesCount}</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleCommentClick}>
+                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={scrollToComments}>
                     <MessageCircle className="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">12</span>
+                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">{comments.length}</span>
                 </div>
                 <button onClick={() => setIsAIChatOpen(true)} className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg -mt-10 border-4 border-white active:scale-95 transition-transform">
                     <Bot className="w-7 h-7" />
