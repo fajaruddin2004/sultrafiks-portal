@@ -31,6 +31,14 @@ const timeAgo = (dateString) => {
     return date.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// 🔥 FUNGSI PEMBUAT URL SEO (SLUG) - MENGUBAH JUDUL JADI URL 🔥
+const createSlug = (title, id) => {
+    if (!title) return `/news/${id}`;
+    // Ubah spasi jadi strip (-), huruf kecil semua, hilangkan simbol aneh
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    return `/news/${slug}--${id}`;
+};
+
 // KONFIGURASI WARNA & IKON
 const categoryConfig = {
     "Home":         { icon: HomeIcon,     color: "from-blue-600 to-indigo-600" },
@@ -48,7 +56,6 @@ const categoryConfig = {
 };
 const categories = Object.keys(categoryConfig);
 
-// LOGIKA UMUR BERITA (MAX 7 HARI UNTUK HEADLINE)
 const isWithin7Days = (dateString) => {
     if (!dateString) return false;
     const diffDays = (new Date().getTime() - new Date(dateString).getTime()) / (1000 * 3600 * 24);
@@ -66,10 +73,8 @@ export default function HomePage() {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
 
-    // Reset slider kalau ganti kategori
     useEffect(() => { setCurrentSlide(0); }, [activeCat]);
 
-    // 🔥 JURUS DARK MODE ANTI-BELANG 🔥
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedMode = localStorage.getItem('theme');
@@ -93,7 +98,6 @@ export default function HomePage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // KOMPONEN SLOT IKLAN DINAMIS
     const AdSlot = ({ label, image, link, height = "h-24", className }) => {
         const Content = () => (
             <div className={`w-full border flex flex-col items-center justify-center relative overflow-hidden group transition-all hover:shadow-lg ${height} ${className} ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
@@ -111,30 +115,21 @@ export default function HomePage() {
         return link ? <a href={link} target="_blank" rel="noopener noreferrer" className="block w-full"><Content /></a> : <Content />;
     };
 
-    // =======================================================================================
-    // 🔥 PERBAIKAN PERFORMA (USEMEMO): SANGAT PENTING SEBELUM HOSTING AGAR WEB TIDAK LAMBAT 🔥
-    // =======================================================================================
-
-    // 1. Urutkan semua berita dari yang terbaru (Hanya jalan kalau ada berita baru dari DB)
     const allNewsSorted = useMemo(() => {
         return [...(news || [])]
             .filter(item => item.status === 'published')
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     }, [news]);
 
-    // 2. Filter Berita Berdasarkan Kategori yang Dipilih ("Indeks" menampilkan semua)
     const categoryNews = useMemo(() => {
         if (activeCat === "Home" || activeCat === "Indeks") return allNewsSorted;
         return allNewsSorted.filter(item => item.category === activeCat);
     }, [allNewsSorted, activeCat]);
 
-    // 3. Logika Mencari Headline (Maks 7 hari terakhir)
     const headlineCandidates = useMemo(() => {
-        if (activeCat === "Indeks") return []; // Mode Indeks tidak butuh slider
-
+        if (activeCat === "Indeks") return []; 
         const isValidHeadline = (item) => (item.is_headline === true || item.is_headline === 'true' || item.is_headline === 1) && isWithin7Days(item.created_at);
         let candidates = [];
-
         if (activeCat === "Home") {
             const trueHeadlines = allNewsSorted.filter(isValidHeadline);
             candidates = trueHeadlines.length > 0 ? trueHeadlines.slice(0, 5) : allNewsSorted.slice(0, 3);
@@ -145,22 +140,17 @@ export default function HomePage() {
         return candidates;
     }, [allNewsSorted, categoryNews, activeCat]);
 
-    // 4. Pisahkan berita biasa dari Headline agar tidak ganda
     const regularNewsList = useMemo(() => {
         const headlineIds = headlineCandidates.map(h => h.id);
         let list = categoryNews.filter(item => !headlineIds.includes(item.id));
-        if (list.length === 0) return categoryNews; // Fallback jika disedot slider semua
+        if (list.length === 0) return categoryNews; 
         return list;
     }, [categoryNews, headlineCandidates]);
 
-    // 5. Data Trending (Terpopuler)
     const trendingList = useMemo(() => {
         return [...allNewsSorted].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5);
     }, [allNewsSorted]);
 
-    // =======================================================================================
-
-    // Auto Slider Interval
     useEffect(() => {
         if (headlineCandidates.length > 1 && !searchQuery && activeCat !== "Indeks") {
             const timer = setInterval(() => setCurrentSlide((prev) => (prev + 1) % headlineCandidates.length), 4000); 
@@ -168,22 +158,15 @@ export default function HomePage() {
         }
     }, [headlineCandidates.length, searchQuery, activeCat]);
 
-
-    // 🔥 KOMPONEN RENDER GRID BERITA (SUDAH DIKUNCI MATI SYMETRIS 100%) 🔥
     const renderNewsGrid = (newsList, sectionTitle = "Terkini", hideTitle = false) => {
         if (newsList.length === 0) return null;
         
-        // Membagi 2 Berita Teratas (Kotak Besar), sisanya List Kebawah
         const topTwo = newsList.slice(0, 2);
-        const restNews = newsList.slice(2, 60); // Max 60 berita per halaman agar tidak nge-lag
+        const restNews = newsList.slice(2, 60);
 
-        // Logika Klik Tombol Indeks / Lihat Semua
         const handleSectionClick = () => {
-            if (sectionTitle === "Terkini") {
-                setActiveCat("Indeks"); // Beralih ke Mode Indeks!
-            } else {
-                setActiveCat(sectionTitle); // Beralih ke Kategori tsb
-            }
+            if (sectionTitle === "Terkini") setActiveCat("Indeks");
+            else setActiveCat(sectionTitle); 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
@@ -195,8 +178,6 @@ export default function HomePage() {
                             <div className={`h-5 md:h-6 w-1 md:w-1.5 rounded-full ${sectionTitle === "Terkini" || sectionTitle === "Indeks Berita Terbaru" ? 'bg-red-600' : 'bg-blue-600'}`}></div>
                             <h3 className={`font-black text-lg md:text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{sectionTitle}</h3>
                         </div>
-                        
-                        {/* Jika berada di Mode Indeks, tombol Lihat Semua Dihilangkan */}
                         {sectionTitle !== "Indeks Berita Terbaru" && (
                             <button onClick={handleSectionClick} className={`text-[10px] md:text-xs font-bold flex items-center gap-1 transition-colors ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-500 hover:text-blue-600'}`}>
                                 {sectionTitle === "Terkini" ? "Indeks" : "Lihat Semua"} <ChevronRight className="w-3 h-3"/>
@@ -205,17 +186,13 @@ export default function HomePage() {
                     </div>
                 )}
 
-                {/* 2 Card Besar Mobile (Kotak Dijamin Sama Rata) */}
+                {/* 🔥 LINK MENUJU HALAMAN BERITA (SUDAH PAKAI SLUG URL) 🔥 */}
                 {topTwo.length > 0 && (
                     <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-5">
                         {topTwo.map((item) => (
-                            <Link key={item.id} href={`/news/${item.id}`} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
-                                
-                                {/* Gambar Berita */}
+                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
                                 <div className="relative w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden shrink-0">
                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={item.title} />
-                                    
-                                    {/* Overlay Desktop (Hidden on Mobile) */}
                                     <div className="hidden md:flex absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex-col justify-end p-5">
                                         <h4 className="text-white font-bold text-base leading-snug line-clamp-3 group-hover:text-blue-300 transition-colors drop-shadow-md">
                                             {item.title}
@@ -225,8 +202,6 @@ export default function HomePage() {
                                         </p>
                                     </div>
                                 </div>
-
-                                {/* Teks Berita Mobile (Dikunci flex-grow & mt-auto agar jam selalu di bawah) */}
                                 <div className="flex md:hidden flex-col flex-grow p-2.5">
                                     <h4 className={`font-bold text-[11px] leading-snug line-clamp-3 transition-colors ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>
                                         {item.title}
@@ -235,25 +210,20 @@ export default function HomePage() {
                                         <Clock className="w-2.5 h-2.5" /> {timeAgo(item.created_at)}
                                     </p>
                                 </div>
-                                
                             </Link>
                         ))}
                     </div>
                 )}
 
-                {/* List Berita Biasa 2 Kolom Mobile (Dikunci Sama Rata) */}
+                {/* 🔥 LINK MENUJU HALAMAN BERITA (SUDAH PAKAI SLUG URL) 🔥 */}
                 {restNews.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {restNews.map((item) => (
-                            <Link key={item.id} href={`/news/${item.id}`} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
-                                
-                                {/* Gambar Terkunci */}
+                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
                                 <div className="relative w-full aspect-[4/3] overflow-hidden shrink-0">
                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={item.title} />
                                     {item.category === "Entertainment" && <PlayCircle className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-white/80" />}
                                 </div>
-                                
-                                {/* Teks Terkunci (Jam otomatis selalu ditarik menyentuh garis bawah kotak) */}
                                 <div className="flex flex-col flex-grow p-2.5 md:p-3">
                                     <h4 className={`font-bold text-[11px] md:text-sm leading-snug line-clamp-3 transition-colors ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>
                                         {item.title}
@@ -262,7 +232,6 @@ export default function HomePage() {
                                         <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" /> {timeAgo(item.created_at)}
                                     </p>
                                 </div>
-                                
                             </Link>
                         ))}
                     </div>
@@ -279,8 +248,6 @@ export default function HomePage() {
                 color: isDarkMode ? '#f8fafc' : '#0f172a' 
             }}
         >
-                
-            {/* SIDEBAR MOBILE */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <>
@@ -317,7 +284,6 @@ export default function HomePage() {
                 )}
             </AnimatePresence>
 
-            {/* HEADER FIXED */}
             <header className="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300">
                 <div className={`absolute inset-0 backdrop-blur-md border-b shadow-sm ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/60'}`}></div>
                 <div className="relative z-10 max-w-7xl mx-auto px-3">
@@ -356,7 +322,6 @@ export default function HomePage() {
                         {categories.map((cat) => {
                             const config = categoryConfig[cat];
                             const IconComponent = config.icon;
-                            // Reset aktif jika mode indeks atau cari
                             const isActive = activeCat === cat && !searchQuery && activeCat !== "Indeks"; 
                             return (
                                 <button key={cat} onClick={() => handleCategoryClick(cat)} className="flex flex-col items-center gap-1 group shrink-0 px-1">
@@ -371,9 +336,7 @@ export default function HomePage() {
                 </div>
             </header>
 
-            {/* KONTEN UTAMA */}
             <main className="max-w-7xl mx-auto px-3 md:px-4 pt-36 md:pt-28 pb-5 md:pb-8 space-y-6 md:space-y-8">
-                
                 <AdSlot label="BANNER ATAS (728x90)" image={ads?.header?.image} link={ads?.header?.link} height="h-16 md:h-24" className="rounded-xl md:rounded-2xl" />
 
                 {searchQuery ? (
@@ -383,17 +346,14 @@ export default function HomePage() {
                     </div>
                 ) : (
                     <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-8">
-                        
-                        {/* KOLOM KIRI */}
                         <div className="lg:col-span-8 space-y-6 md:space-y-10 overflow-hidden">
-                            
-                            {/* 🔥 SLIDER HEADLINE (Disembunyikan saat Mode Indeks) 🔥 */}
+                            {/* 🔥 SLIDER HEADLINE JUGA MENGGUNAKAN SLUG 🔥 */}
                             {headlineCandidates.length > 0 && activeCat !== "Indeks" && (
                                 <div className={`relative w-full h-56 md:h-96 rounded-xl md:rounded-2xl overflow-hidden group shadow-md ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-900'}`}>
                                     <div className="flex h-full w-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                                         {headlineCandidates.map((item) => (
                                             <div key={item.id} className="w-full h-full flex-shrink-0 relative">
-                                                <Link href={`/news/${item.id}`} className="block w-full h-full">
+                                                <Link href={createSlug(item.title, item.id)} className="block w-full h-full">
                                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt={item.title} />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4 md:p-8">
                                                         <div className="flex items-center gap-1.5 md:gap-2 mb-2">
@@ -419,16 +379,12 @@ export default function HomePage() {
                                 </div>
                             )}
 
-                            {/* 🔥 LOGIKA TAMPILAN BERITA (HOME VS INDEKS) 🔥 */}
                             {activeCat === "Indeks" ? (
-                                // MODE INDEKS: TAMPILKAN SEMUA BERITA
                                 <div className="space-y-8 md:space-y-10">
                                     {renderNewsGrid(allNewsSorted, "Indeks Berita Terbaru")}
                                 </div>
                             ) : activeCat === "Home" ? (
-                                // MODE HOME NORMAL
                                 <div className="space-y-8 md:space-y-10">
-                                    {/* MANTRA TERKINI: HANYA TAMPILKAN 2 BERITA */}
                                     {renderNewsGrid(regularNewsList.slice(0, 2), "Terkini")}
 
                                     <AdSlot label="IKLAN IN-FEED" image={ads?.inFeed?.image} link={ads?.inFeed?.link} height="h-20 md:h-28" className={`rounded-xl ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-blue-50/50 border-blue-100'}`} />
@@ -461,12 +417,11 @@ export default function HomePage() {
                                     })}
                                 </div>
                             ) : (
-                                // MODE KATEGORI TERTENTU
                                 <div>{renderNewsGrid(regularNewsList, `Kanal: ${activeCat}`)}</div>
                             )}
                         </div>
 
-                        {/* KOLOM KANAN (Trending) */}
+                        {/* 🔥 LINK TERPOPULER JUGA SUDAH PAKAI SLUG 🔥 */}
                         <div className="lg:col-span-4 flex flex-col gap-6 md:gap-8">
                             <AdSlot label="IKLAN KOTAK (300x250)" image={ads?.sidebarTop?.image} link={ads?.sidebarTop?.link} height="h-[180px] md:h-[250px]" className="rounded-xl" />
 
@@ -479,7 +434,7 @@ export default function HomePage() {
                                         <p className={`text-[10px] md:text-xs text-center py-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Belum ada data.</p>
                                     ) : (
                                         trendingList.map((item, idx) => (
-                                            <Link key={item.id} href={`/news/${item.id}`} className={`flex gap-3 group items-start border-b pb-3 last:border-0 last:pb-0 ${isDarkMode ? 'border-slate-700/50' : 'border-slate-50'}`}>
+                                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex gap-3 group items-start border-b pb-3 last:border-0 last:pb-0 ${isDarkMode ? 'border-slate-700/50' : 'border-slate-50'}`}>
                                                 <div className={`w-14 h-14 md:w-20 md:h-20 rounded-lg overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
                                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt={item.title} />
                                                     <div className="absolute top-0 left-0 bg-blue-600 text-white text-[8px] md:text-[10px] font-black w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-br-lg">{idx + 1}</div>
@@ -506,7 +461,6 @@ export default function HomePage() {
                 </div>
             </main>
 
-            {/* FOOTER */}
             <footer className="bg-[#0f172a] text-white pt-10 md:pt-16 pb-6 px-4 mt-6">
                 <div className="max-w-5xl mx-auto text-center md:text-left">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-8 md:mb-12">
@@ -535,7 +489,6 @@ export default function HomePage() {
                 </div>
             </footer>
             
-            {/* TENTANG KAMI MODAL */}
             <AnimatePresence>
                 {isAboutOpen && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

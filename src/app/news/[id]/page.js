@@ -9,18 +9,23 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Bot, Send, Minus, Plus, Bookmark, Quote, TrendingUp,
     BadgeCheck, Zap, X, Volume2, VolumeX, Heart, MessageCircle, 
-    Facebook, Twitter, Youtube, Hash, Home, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2, User, Sun, Moon, Instagram, BookOpen
+    Facebook, Twitter, Youtube, Hash, Home, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2, User, Sun, Moon, Instagram, BookOpen, ChevronDown
 } from 'lucide-react'; 
 import Link from 'next/link';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
 
-// --- FUNGSI HELPER WAKTU RELATIF ---
+// 🔥 KOMPONEN IKON WHATSAPP ASLI (SVG ORIGINAL) 🔥
+const WhatsAppIcon = ({ className }) => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.446-.272.371-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+    </svg>
+);
+
 const timeAgo = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     const now = new Date();
     const secondsPast = (now.getTime() - date.getTime()) / 1000;
-
     if (secondsPast < 60) return `Baru saja`;
     if (secondsPast < 3600) return `${Math.floor(secondsPast / 60)} menit yang lalu`;
     if (secondsPast <= 86400) return `${Math.floor(secondsPast / 3600)} jam yang lalu`;
@@ -32,11 +37,16 @@ const timeAgo = (dateString) => {
     return '';
 };
 
-// --- FUNGSI PENGHITUNG WAKTU BACA ---
 const getReadingTime = (text) => {
     if (!text) return 1;
     const wordCount = text.trim().split(/\s+/).length;
-    return Math.ceil(wordCount / 200); // Rata-rata membaca 200 kata/menit
+    return Math.ceil(wordCount / 200); 
+};
+
+const createSlug = (title, id) => {
+    if (!title) return `/news/${id}`;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    return `/news/${slug}--${id}`;
 };
 
 export default function NewsDetail() {
@@ -51,9 +61,9 @@ export default function NewsDetail() {
     const [loading, setLoading] = useState(true);
     const [relatedNews, setRelatedNews] = useState([]);
 
-    // STATE PROFIL WARTAWAN
     const [authorData, setAuthorData] = useState({ name: 'Tim Redaksi SultraFiks', avatar: null });
     const [editorData, setEditorData] = useState({ name: 'Admin SultraFiks', avatar: null });
+    const [showRedaksi, setShowRedaksi] = useState(false);
 
     const [fontSize, setFontSize] = useState(15); 
     const [isSaved, setIsSaved] = useState(false);
@@ -67,7 +77,6 @@ export default function NewsDetail() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({ show: false, message: '' });
     
-    // AI Chat & Modal State
     const [isAIChatOpen, setIsAIChatOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
     const [chatMessages, setChatMessages] = useState([{ role: 'ai', text: 'Halo! Saya AI SultraFiks. Ada yang ingin Anda tanyakan tentang berita ini?' }]);
@@ -76,7 +85,6 @@ export default function NewsDetail() {
     const { scrollYProgress } = useScroll();
     const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
-    // --- LOGIKA TEMA DARK MODE ---
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedMode = localStorage.getItem('theme');
@@ -99,10 +107,10 @@ export default function NewsDetail() {
         localStorage.setItem('theme', newMode ? 'dark' : 'light');
     };
 
-    // 1. FETCH ARTIKEL & PROFIL + LOGIKA VIEW COUNTER 25+
     useEffect(() => {
         if (!params.id) return;
-        const targetId = String(params.id);
+        const rawParam = String(params.id);
+        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
 
         const fetchArticleData = async () => {
             const { data: currentArticle, error: articleError } = await supabase
@@ -112,37 +120,25 @@ export default function NewsDetail() {
                 .single();
 
             if (currentArticle) {
-                // 🔥 LOGIKA VIEW COUNTER (START DARI 25) 🔥
                 const viewedKey = `viewed_${targetId}`;
                 const hasViewed = sessionStorage.getItem(viewedKey);
                 
-                // Cek views saat ini di DB (jika null, anggap 0)
                 let currentViews = currentArticle.views || 0;
-                
-                // Suntikan Views: Jika masih di bawah 25, otomatis boost ke 25
-                if (currentViews < 25) {
-                    currentViews = 25 + currentViews;
-                }
+                if (currentViews < 25) { currentViews = 25 + currentViews; }
 
-                // Jika user ini belum pernah melihat artikel di sesi ini, tambahkan +1 view
                 if (!hasViewed) {
                     currentViews += 1;
-                    sessionStorage.setItem(viewedKey, 'true'); // Tandai sudah dilihat
-                    
-                    // Kirim update angka view terbaru secara real-time ke Supabase
+                    sessionStorage.setItem(viewedKey, 'true'); 
                     supabase.from('news').update({ views: currentViews }).eq('id', targetId).then();
                 }
 
-                // Set views ke artikel yang akan ditampilkan
                 currentArticle.views = currentViews;
                 setArticle(currentArticle);
                 
-                // Ambil Related News
                 if (news && news.length > 0) {
                     setRelatedNews(news.filter(item => item.category === currentArticle.category && String(item.id) !== targetId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4));
                 }
 
-                // Ambil Profil Supabase
                 const rawAuthor = currentArticle.author || currentArticle.penulis || currentArticle.wartawan;
                 const rawEditor = currentArticle.editor || currentArticle.redaktur;
                 const authorId = currentArticle.author_id || currentArticle.user_id; 
@@ -183,21 +179,23 @@ export default function NewsDetail() {
         fetchArticleData();
     }, [params.id, news]);
 
-    // 2. FETCH LIKES & COMMENTS
     useEffect(() => {
         if (!params.id) return;
+        const rawParam = String(params.id);
+        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+
         const fetchInteractions = async () => {
-            const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', params.id).single();
+            const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', targetId).single();
             if (newsData) setLikesCount(newsData.likes_count || 10);
-            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', params.id).order('created_at', { ascending: false });
+            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', targetId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
         fetchInteractions();
 
         const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
-        if (likedHistory.includes(params.id)) setIsLiked(true);
+        if (likedHistory.includes(targetId)) setIsLiked(true);
         const savedHistory = JSON.parse(localStorage.getItem('saved_articles') || '[]');
-        if (savedHistory.includes(params.id)) setIsSaved(true);
+        if (savedHistory.includes(targetId)) setIsSaved(true);
     }, [params.id]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, isAIChatOpen]);
@@ -212,25 +210,31 @@ export default function NewsDetail() {
             showToast("Anda sudah menyukai berita ini! ❤️");
             return;
         }
+        const rawParam = String(params.id);
+        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+
         const newCount = likesCount + 1;
         setLikesCount(newCount);
         setIsLiked(true);
         showToast("Terima kasih atas apresiasinya! ❤️");
         const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
-        likedHistory.push(params.id);
+        likedHistory.push(targetId);
         localStorage.setItem('liked_articles', JSON.stringify(likedHistory));
-        await supabase.from('news').update({ likes_count: newCount }).eq('id', params.id);
+        await supabase.from('news').update({ likes_count: newCount }).eq('id', targetId);
     };
 
     const handleBookmark = () => {
+        const rawParam = String(params.id);
+        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+
         const savedHistory = JSON.parse(localStorage.getItem('saved_articles') || '[]');
         if (isSaved) {
-            const newHistory = savedHistory.filter(id => id !== params.id);
+            const newHistory = savedHistory.filter(id => id !== targetId);
             localStorage.setItem('saved_articles', JSON.stringify(newHistory));
             setIsSaved(false);
             showToast("Berita dihapus dari Bookmark! 🗑️");
         } else {
-            savedHistory.push(params.id);
+            savedHistory.push(targetId);
             localStorage.setItem('saved_articles', JSON.stringify(savedHistory));
             setIsSaved(true);
             showToast("Berita disimpan ke Bookmark! 🔖");
@@ -243,8 +247,12 @@ export default function NewsDetail() {
         e.preventDefault();
         if (!commentForm.name.trim() || !commentForm.content.trim()) return showToast("Nama dan komentar wajib diisi! ✍️");
         setIsSubmitting(true);
+        
+        const rawParam = String(params.id);
+        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+
         try {
-            const { data, error } = await supabase.from('comments').insert([{ news_id: params.id, user_name: commentForm.name, content: commentForm.content }]).select();
+            const { data, error } = await supabase.from('comments').insert([{ news_id: targetId, user_name: commentForm.name, content: commentForm.content }]).select();
             if (error) throw error;
             if (data) {
                 setComments([data[0], ...comments]);
@@ -254,15 +262,25 @@ export default function NewsDetail() {
         } catch (error) { showToast("Gagal mengirim komentar. Coba lagi."); } finally { setIsSubmitting(false); }
     };
 
+    // 🔥 LOGIKA SHARE DIPERBARUI AGAR ROBOT WA BISA MEMBACA GAMBAR 🔥
     const handleShare = async (platform) => {
-        const currentUrl = window.location.href;
-        const shareText = `Baca berita terbaru: ${article?.title} di SultraFiks!`;
+        const currentUrl = window.location.href; 
+        
+        // Format Teks WhatsApp yang sangat disukai Robot WA (URL harus ada di baris baru)
+        const waText = `*${article?.title}*\n\nBaca selengkapnya di SultraFiks:\n${currentUrl}`;
+        
         let url = '';
         
         switch(platform) {
-            case 'facebook': url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`; break;
-            case 'twitter': url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(shareText)}`; break;
-            case 'whatsapp': url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + currentUrl)}`; break;
+            case 'facebook': 
+                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`; 
+                break;
+            case 'twitter': 
+                url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(article?.title)}`; 
+                break;
+            case 'whatsapp': 
+                url = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`; 
+                break;
             case 'instagram':
                 navigator.clipboard.writeText(currentUrl);
                 showToast("Tautan disalin! Silakan buka Instagram untuk membagikan. 📸");
@@ -274,7 +292,7 @@ export default function NewsDetail() {
             case 'native':
                 if (navigator.share) {
                     try {
-                        await navigator.share({ title: article?.title, text: shareText, url: currentUrl });
+                        await navigator.share({ title: article?.title, text: `Baca selengkapnya:`, url: currentUrl });
                         return;
                     } catch (err) { return; }
                 }
@@ -306,7 +324,6 @@ export default function NewsDetail() {
         <div className={`min-h-screen font-sans pb-24 md:pb-0 relative transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19] text-white' : 'bg-white text-slate-900'}`}>
             <motion.div className="fixed top-0 left-0 right-0 h-1 md:h-1.5 bg-blue-600 origin-left z-[60]" style={{ scaleX }} />
 
-            {/* POP-UP TOAST */}
             <AnimatePresence>
                 {toast.show && (
                     <motion.div 
@@ -321,7 +338,6 @@ export default function NewsDetail() {
                 )}
             </AnimatePresence>
 
-            {/* HEADER ATAS */}
             <div className={`sticky top-0 z-50 backdrop-blur-xl border-b px-3 md:px-4 py-2 transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
                 <div className="max-w-5xl mx-auto flex justify-between items-center">
                     <button onClick={() => router.back()} className={`p-2 md:p-2.5 rounded-full transition-colors ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
@@ -349,13 +365,13 @@ export default function NewsDetail() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
                     <div className="lg:col-span-8">
                         {/* KATEGORI & JUDUL */}
-                        <div className={`flex items-center gap-2 text-[10px] md:text-xs font-bold text-blue-600 mb-4 uppercase tracking-wider`}>
+                        <div className={`flex items-center gap-2 text-[10px] md:text-xs font-bold text-blue-600 mb-3 md:mb-4 uppercase tracking-wider`}>
                             <span className={`px-2 py-1 rounded ${isDarkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-50'}`}>News</span> / <span>{article?.category || 'Utama'}</span>
                         </div>
-                        <h1 className={`text-2xl md:text-4xl lg:text-5xl font-black leading-tight md:leading-snug mb-5 md:mb-6 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{article?.title}</h1>
-
+                        <h1 className={`text-xl md:text-3xl lg:text-4xl font-black leading-tight md:leading-snug mb-4 md:mb-5 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{article?.title}</h1>
+                        
                         {/* INFO MEDIA & WAKTU */}
-                        <div className={`flex items-center justify-between border-b pb-4 md:pb-6 mb-6 md:mb-8 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                        <div className={`flex items-center justify-between border-b pb-3 md:pb-4 mb-3 md:mb-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <div className="flex items-center gap-3 md:gap-4">
                                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
                                     <Zap className="w-5 h-5 md:w-6 md:h-6 fill-white text-white stroke-white" />
@@ -365,7 +381,6 @@ export default function NewsDetail() {
                                         <p className={`text-sm md:text-base font-black ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SultraFiks</p>
                                         <BadgeCheck className="w-4 h-4 md:w-5 md:h-5 text-blue-600 fill-white" />
                                     </div>
-                                    {/* 🔥 TEKS FIXSEKALINYAMI 🔥 */}
                                     <p className={`text-[9px] md:text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                         FIXSEKALINYAMI
                                     </p>
@@ -374,9 +389,8 @@ export default function NewsDetail() {
                                         {timeAgo(article?.created_at)}
                                         <span className="mx-0.5 md:mx-1">•</span>
                                         <Eye className="w-3 h-3 text-blue-500"/>
-                                        <span>{article?.views || 25} Dilihat</span> {/* Terjamin di atas 25 */}
+                                        <span>{article?.views || 25} Dilihat</span>
                                         
-                                        {/* ESTIMASI WAKTU BACA */}
                                         <span className="mx-0.5 md:mx-1 inline">•</span>
                                         <BookOpen className="w-3 h-3 text-blue-500 inline"/>
                                         <span className="inline">{getReadingTime(article?.content)} Menit Baca</span>
@@ -384,7 +398,6 @@ export default function NewsDetail() {
                                 </div>
                             </div>
 
-                            {/* TOMBOL BOOKMARK HANYA MUNCUL DI DESKTOP */}
                             <div className="hidden md:flex items-center gap-1 group relative">
                                 <motion.button
                                     whileTap={{ scale: 0.8, rotate: isSaved ? -15 : 15 }}
@@ -402,14 +415,16 @@ export default function NewsDetail() {
                                 <div className="relative group overflow-hidden w-full h-full">
                                     <img src={article.image_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={article?.title} />
                                     
-                                    <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1 md:gap-1.5 pointer-events-none opacity-90 drop-shadow-lg z-10">
-                                        <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-0.5 md:p-1 rounded text-white shadow-sm shrink-0">
-                                            <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 fill-white text-white" />
+                                    {(!article?.photo_source || article.photo_source.trim() === '') && (
+                                        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1 md:gap-1.5 pointer-events-none opacity-60 drop-shadow-lg z-10">
+                                            <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-0.5 md:p-1 rounded text-white shadow-sm shrink-0">
+                                                <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 fill-white text-white" />
+                                            </div>
+                                            <span className="text-white text-xs md:text-base font-black italic tracking-tighter shrink-0" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
+                                                SULTRA<span className="text-blue-400">FIKS</span>
+                                            </span>
                                         </div>
-                                        <span className="text-white text-xs md:text-base font-black italic tracking-tighter shrink-0" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
-                                            SULTRA<span className="text-blue-400">FIKS</span>
-                                        </span>
-                                    </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className={`absolute inset-0 flex flex-col items-center justify-center ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>
@@ -419,17 +434,20 @@ export default function NewsDetail() {
                             )}
                         </div>
                         
-                        {/* CAPTION FOTO & SUMBER */}
-                        <div className={`flex flex-col md:flex-row justify-between text-[10px] md:text-xs mb-8 md:mb-10 px-2 italic leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            <p>{article?.photo_caption || "Ilustrasi berita."}</p>
+                        {/* CAPTION FOTO & SUMBER DENGAN ORDER CSS UNTUK MOBILE */}
+                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-6 md:mb-8 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            <p className="text-left order-2 md:order-1">
+                                {article?.photo_caption || "Ilustrasi berita."}
+                            </p>
+                            
                             {article?.photo_source && article.photo_source.trim() !== '' && (
-                                <p className="font-bold uppercase tracking-widest mt-1 md:mt-0 md:text-right">
+                                <p className="font-bold uppercase tracking-widest text-left md:text-right order-1 md:order-2">
                                     Sumber: {article.photo_source}
                                 </p>
                             )}
                         </div>
 
-                        {/* ISI BERITA */}
+                        {/* ISI BERITA (SEMUA FONT MODERN SANS-SERIF) */}
                         <article className={`prose max-w-none mb-8 md:mb-10 transition-colors ${isDarkMode ? 'prose-invert text-slate-300' : 'text-slate-800'}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
                             {article?.content?.split('\n').map((p, i) => {
                                 if (!p.trim()) return null;
@@ -437,56 +455,78 @@ export default function NewsDetail() {
                                     return (
                                         <div key={i} className={`my-6 pl-4 md:pl-5 border-l-[3px] border-blue-600 relative py-3 rounded-r-xl ${isDarkMode ? 'bg-slate-800/50' : 'bg-blue-50/30'}`}>
                                             <Quote className={`absolute top-2 right-2 w-5 h-5 md:w-6 md:h-6 rotate-180 ${isDarkMode ? 'text-slate-700' : 'text-blue-100'}`}/>
-                                            <p className={`italic font-semibold leading-relaxed relative z-10 text-[13px] md:text-base ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                                                <span className="text-blue-600 font-serif text-lg mr-1">“</span>
+                                            <p className={`italic font-semibold leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                                                <span className="text-blue-600 mr-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>“</span>
                                                 {p.trim().substring(1).trim()}
-                                                <span className="text-blue-600 font-serif text-lg ml-1">”</span>
+                                                <span className="text-blue-600 ml-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>”</span>
                                             </p>
                                         </div>
                                     );
                                 }
-                                return <p key={i} className="mb-4 md:mb-6 leading-relaxed text-justify font-serif">{p}</p>;
+                                return <p key={i} className="mb-4 md:mb-6 leading-relaxed text-justify">{p}</p>;
                             })}
                         </article>
 
-                        {/* PROFIL WARTAWAN & REDAKTUR */}
-                        <div className={`mt-8 mb-8 p-4 md:p-6 rounded-2xl border flex flex-col sm:flex-row gap-5 justify-between items-start sm:items-center shadow-sm ${isDarkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                            
-                            <Link href={`/author/${encodeURIComponent(authorData.name)}`} className="flex items-center gap-3 md:gap-4 group cursor-pointer w-full sm:w-auto">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-blue-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
-                                    {authorData.avatar ? (
-                                        <img src={authorData.avatar} alt={authorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                    ) : (
-                                        <User className={`w-6 h-6 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
-                                    )}
-                                </div>
-                                <div>
-                                    <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Wartawan</p>
-                                    <p className={`text-sm md:text-base font-black capitalize group-hover:text-blue-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        {authorData.name}
-                                    </p>
-                                </div>
-                            </Link>
-                            
-                            <div className={`hidden sm:block w-px h-12 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
-                            
-                            <Link href={`/author/${encodeURIComponent(editorData.name)}`} className="flex items-center gap-3 md:gap-4 group cursor-pointer w-full sm:w-auto">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-red-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
-                                    {editorData.avatar ? (
-                                        <img src={editorData.avatar} alt={editorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                            <Zap className="w-5 h-5 md:w-6 md:h-6 fill-white text-white" />
+                        {/* PROFIL WARTAWAN & REDAKTUR (SISTEM HIDDEN/ACCORDION) */}
+                        <div className={`mt-8 mb-8 pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <button 
+                                onClick={() => setShowRedaksi(!showRedaksi)}
+                                className={`flex items-center gap-2 text-xs md:text-sm font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-blue-600'}`}
+                            >
+                                Informasi Redaksi
+                                <motion.div animate={{ rotate: showRedaksi ? 180 : 0 }}>
+                                    <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
+                                </motion.div>
+                            </button>
+
+                            <AnimatePresence>
+                                {showRedaksi && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className={`mt-3 p-3 md:p-4 rounded-xl border flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center shadow-sm ${isDarkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                                            <Link href={`/author/${encodeURIComponent(authorData.name)}`} className="flex items-center gap-2.5 md:gap-3 group cursor-pointer w-full sm:w-auto">
+                                                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-blue-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
+                                                    {authorData.avatar ? (
+                                                        <img src={authorData.avatar} alt={authorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                    ) : (
+                                                        <User className={`w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>Wartawan</p>
+                                                    <p className={`text-xs md:text-sm font-black capitalize group-hover:text-blue-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                        {authorData.name}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                            
+                                            <div className={`hidden sm:block w-px h-8 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
+                                            
+                                            <Link href={`/author/${encodeURIComponent(editorData.name)}`} className="flex items-center gap-2.5 md:gap-3 group cursor-pointer w-full sm:w-auto">
+                                                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-red-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
+                                                    {editorData.avatar ? (
+                                                        <img src={editorData.avatar} alt={editorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                                            <Zap className="w-4 h-4 md:w-5 md:h-5 fill-white text-white" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className={`text-[8px] md:text-[9px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`}>Editor / Redaktur</p>
+                                                    <p className={`text-xs md:text-sm font-black capitalize group-hover:text-red-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                                        {editorData.name}
+                                                    </p>
+                                                </div>
+                                            </Link>
                                         </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5 ${isDarkMode ? 'text-red-400' : 'text-red-500'}`}>Editor / Redaktur</p>
-                                    <p className={`text-sm md:text-base font-black capitalize group-hover:text-red-500 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                        {editorData.name}
-                                    </p>
-                                </div>
-                            </Link>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
 
                         {/* BAGIAN BAWAH (TAGS & ENGAGEMENT) */}
@@ -520,7 +560,7 @@ export default function NewsDetail() {
                                 <div className="flex items-center gap-2 md:gap-3">
                                     <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest mr-1 md:mr-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Bagikan:</span>
                                     <button onClick={() => handleShare('facebook')} className={`p-2.5 md:p-3 rounded-full transition-all hover:shadow-lg hover:bg-[#1877F2] hover:text-white ${isDarkMode ? 'bg-slate-800 text-slate-400 hover:shadow-[#1877F2]/30' : 'bg-slate-100 text-slate-600 hover:shadow-[#1877F2]/30'}`}><Facebook className="w-4 h-4 md:w-5 md:h-5" /></button>
-                                    <button onClick={() => handleShare('whatsapp')} className={`p-2.5 md:p-3 rounded-full transition-all hover:shadow-lg hover:bg-[#25D366] hover:text-white ${isDarkMode ? 'bg-slate-800 text-slate-400 hover:shadow-[#25D366]/30' : 'bg-slate-100 text-slate-600 hover:shadow-[#25D366]/30'}`}><MessageCircle className="w-4 h-4 md:w-5 md:h-5" /></button>
+                                    <button onClick={() => handleShare('whatsapp')} className={`p-2.5 md:p-3 rounded-full transition-all hover:shadow-lg hover:bg-[#25D366] hover:text-white ${isDarkMode ? 'bg-slate-800 text-slate-400 hover:shadow-[#25D366]/30' : 'bg-slate-100 text-slate-600 hover:shadow-[#25D366]/30'}`}><WhatsAppIcon className="w-4 h-4 md:w-5 md:h-5" /></button>
                                     <button onClick={() => handleShare('copy')} className={`p-2.5 md:p-3 rounded-full transition-all hover:shadow-lg hover:text-white ${isDarkMode ? 'bg-slate-800 text-slate-400 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-800'}`}><LinkIcon className="w-4 h-4 md:w-5 md:h-5" /></button>
                                 </div>
                             </div>
@@ -600,7 +640,7 @@ export default function NewsDetail() {
                                     </div>
                                 ) : (
                                     relatedNews.map((item) => (
-                                        <Link href={`/news/${item.id}`} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
+                                        <Link href={createSlug(item.title, item.id)} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
                                             <div className="flex-1">
                                                 <h4 className={`font-bold text-xs md:text-sm line-clamp-2 transition-colors leading-snug ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{item.title}</h4>
                                                 <span className={`text-[9px] md:text-[10px] uppercase font-black tracking-widest flex items-center gap-1 mt-1.5 md:mt-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -686,7 +726,7 @@ export default function NewsDetail() {
                 </div>
             </div>
 
-            {/* AI CHAT MODAL */}
+            {/* 🔥 MODAL POP-UP SHARE KHUSUS MOBILE (BOTTOM SHEET) 🔥 */}
             <AnimatePresence>
                 {isShareModalOpen && (
                     <>
@@ -710,7 +750,7 @@ export default function NewsDetail() {
                             <div className="grid grid-cols-4 gap-4">
                                 <div className="flex flex-col items-center gap-3 cursor-pointer group" onClick={() => { handleShare('whatsapp'); setIsShareModalOpen(false); }}>
                                     <div className="w-14 h-14 bg-gradient-to-tr from-[#25D366] to-[#128C7E] text-white rounded-full flex items-center justify-center shadow-lg shadow-[#25D366]/30 active:scale-95 transition-transform">
-                                        <MessageCircle className="w-7 h-7 fill-white" />
+                                        <WhatsAppIcon className="w-7 h-7" />
                                     </div>
                                     <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-400' : 'text-slate-600'}`}>WhatsApp</span>
                                 </div>

@@ -1,21 +1,7 @@
-import type { Config } from "tailwindcss";
+import type { NextConfig } from "next";
 
-const config: Config = {
-  darkMode: "class", // INI KUNCI UTAMANYA BOS!
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-      },
-    },
-  },
-  plugins: [],
+const nextConfig: NextConfig = {
+  reactStrictMode: false,
 };
 
-export default config;
+export default nextConfig;
