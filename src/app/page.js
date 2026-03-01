@@ -5,15 +5,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Search, Zap, Menu, X, ChevronRight, PlayCircle,
-    Flame, Building2, Plane, Utensils, Smartphone, Scale, 
-    Banknote, Theater, Car, Clapperboard, Lightbulb, Briefcase,
-    Home as HomeIcon, Info, Phone, Clock, Eye, Facebook, Twitter, Youtube, Hash, BadgeCheck, Sun, Moon 
+    Building2, Clapperboard, Home as HomeIcon, Info, Phone, Clock, Eye, Facebook, Twitter, Youtube, Hash, BadgeCheck, Sun, Moon,
+    Map, Landmark, ShieldAlert, Trophy, GraduationCap, Globe, Users
 } from 'lucide-react';
 import Link from 'next/link'; 
 import { useNews } from '@/context/NewsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- FUNGSI WAKTU HITUNG MUNDUR ---
 const timeAgo = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -31,28 +29,25 @@ const timeAgo = (dateString) => {
     return date.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-// 🔥 FUNGSI PEMBUAT URL SEO (SLUG) - MENGUBAH JUDUL JADI URL 🔥
-const createSlug = (title, id) => {
-    if (!title) return `/news/${id}`;
-    // Ubah spasi jadi strip (-), huruf kecil semua, hilangkan simbol aneh
+// 🔥 FUNGSI PEMBUAT SLUG MURNI (TANPA ID) 🔥
+const createSlug = (title) => {
+    if (!title) return '#';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    return `/news/${slug}--${id}`;
+    return `/news/${slug}`;
 };
 
-// KONFIGURASI WARNA & IKON
+// 🔥 KONFIGURASI NAMA KATEGORI BARU & IKONNYA 🔥
 const categoryConfig = {
-    "Home":         { icon: HomeIcon,     color: "from-blue-600 to-indigo-600" },
-    "Pemerintah":   { icon: Building2,    color: "from-blue-600 to-indigo-600" },
-    "Travel":       { icon: Plane,        color: "from-sky-400 to-cyan-400" },
-    "Food":         { icon: Utensils,     color: "from-orange-400 to-yellow-500" },
-    "Teknologi":    { icon: Smartphone,   color: "from-violet-600 to-purple-600" },
-    "Politik":      { icon: Scale,        color: "from-slate-700 to-slate-500" },
-    "Ekonomi":      { icon: Banknote,     color: "from-emerald-500 to-green-500" },
-    "Budaya":       { icon: Theater,      color: "from-pink-500 to-rose-500" },
-    "Otomotif":     { icon: Car,          color: "from-gray-600 to-gray-400" },
-    "Entertainment":{ icon: Clapperboard, color: "from-fuchsia-600 to-pink-600" },
-    "Opini":        { icon: Lightbulb,    color: "from-amber-400 to-yellow-400" },
-    "Loker":        { icon: Briefcase,    color: "from-teal-500 to-emerald-500" }
+    "Home":         { icon: HomeIcon,       color: "from-blue-600 to-indigo-600" },
+    "Kilas Daerah": { icon: Map,            color: "from-emerald-500 to-green-500" },
+    "Birokrasi":    { icon: Building2,      color: "from-blue-500 to-cyan-500" },
+    "Parlemen":     { icon: Landmark,       color: "from-slate-700 to-slate-500" },
+    "Delik":        { icon: ShieldAlert,    color: "from-red-600 to-rose-600" },
+    "Arena":        { icon: Trophy,         color: "from-amber-400 to-yellow-500" },
+    "Showbiz":      { icon: Clapperboard,   color: "from-fuchsia-600 to-pink-600" },
+    "Edukes":       { icon: GraduationCap,  color: "from-sky-400 to-blue-400" },
+    "Nusantara":    { icon: Globe,          color: "from-teal-500 to-emerald-500" },
+    "Ruang Publik": { icon: Users,          color: "from-violet-600 to-purple-600" }
 };
 const categories = Object.keys(categoryConfig);
 
@@ -186,11 +181,10 @@ export default function HomePage() {
                     </div>
                 )}
 
-                {/* 🔥 LINK MENUJU HALAMAN BERITA (SUDAH PAKAI SLUG URL) 🔥 */}
                 {topTwo.length > 0 && (
                     <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-5">
                         {topTwo.map((item) => (
-                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
+                            <Link key={item.id} href={createSlug(item.title)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
                                 <div className="relative w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden shrink-0">
                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={item.title} />
                                     <div className="hidden md:flex absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex-col justify-end p-5">
@@ -215,11 +209,10 @@ export default function HomePage() {
                     </div>
                 )}
 
-                {/* 🔥 LINK MENUJU HALAMAN BERITA (SUDAH PAKAI SLUG URL) 🔥 */}
                 {restNews.length > 0 && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {restNews.map((item) => (
-                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
+                            <Link key={item.id} href={createSlug(item.title)} className={`flex flex-col w-full h-full rounded-xl overflow-hidden group shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'}`}>
                                 <div className="relative w-full aspect-[4/3] overflow-hidden shrink-0">
                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={item.title} />
                                     {item.category === "Entertainment" && <PlayCircle className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-white/80" />}
@@ -318,17 +311,18 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto no-scrollbar flex gap-2 md:gap-3 pb-1 pt-1.5 items-center">
+                    {/* 🔥 NAVBAR CATEGORY - DIBESARKAN HANYA UNTUK DEKSTOP 🔥 */}
+                    <div className="overflow-x-auto no-scrollbar flex gap-2 md:gap-4 pb-1 pt-1.5 items-center">
                         {categories.map((cat) => {
                             const config = categoryConfig[cat];
                             const IconComponent = config.icon;
                             const isActive = activeCat === cat && !searchQuery && activeCat !== "Indeks"; 
                             return (
-                                <button key={cat} onClick={() => handleCategoryClick(cat)} className="flex flex-col items-center gap-1 group shrink-0 px-1">
-                                    <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-sm border-0` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
-                                        <IconComponent className={`w-3.5 h-3.5 md:w-4 md:h-4 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
+                                <button key={cat} onClick={() => handleCategoryClick(cat)} className="flex flex-col items-center gap-1 md:gap-1.5 group shrink-0 px-1 md:px-2">
+                                    <div className={`w-7 h-7 md:w-11 md:h-11 rounded-lg flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-sm border-0` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
+                                        <IconComponent className={`w-3.5 h-3.5 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
                                     </div>
-                                    <span className={`text-[8px] md:text-[9px] font-bold tracking-wide transition-colors ${isActive ? 'text-blue-500' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
+                                    <span className={`text-[8px] md:text-[10px] md:mt-0.5 font-bold tracking-wide transition-colors ${isActive ? 'text-blue-500' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
                                 </button>
                             )
                         })}
@@ -336,7 +330,7 @@ export default function HomePage() {
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto px-3 md:px-4 pt-36 md:pt-28 pb-5 md:pb-8 space-y-6 md:space-y-8">
+            <main className="max-w-7xl mx-auto px-3 md:px-4 pt-36 md:pt-28 pb-5 md:pb-8 space-y-6 md:space-y-10">
                 <AdSlot label="BANNER ATAS (728x90)" image={ads?.header?.image} link={ads?.header?.link} height="h-16 md:h-24" className="rounded-xl md:rounded-2xl" />
 
                 {searchQuery ? (
@@ -347,13 +341,12 @@ export default function HomePage() {
                 ) : (
                     <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-8">
                         <div className="lg:col-span-8 space-y-6 md:space-y-10 overflow-hidden">
-                            {/* 🔥 SLIDER HEADLINE JUGA MENGGUNAKAN SLUG 🔥 */}
                             {headlineCandidates.length > 0 && activeCat !== "Indeks" && (
-                                <div className={`relative w-full h-56 md:h-96 rounded-xl md:rounded-2xl overflow-hidden group shadow-md ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-900'}`}>
+                                <div className={`relative w-full h-56 md:h-[400px] rounded-xl md:rounded-2xl overflow-hidden group shadow-md ${isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-900'}`}>
                                     <div className="flex h-full w-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                                         {headlineCandidates.map((item) => (
                                             <div key={item.id} className="w-full h-full flex-shrink-0 relative">
-                                                <Link href={createSlug(item.title, item.id)} className="block w-full h-full">
+                                                <Link href={createSlug(item.title)} className="block w-full h-full">
                                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" alt={item.title} />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4 md:p-8">
                                                         <div className="flex items-center gap-1.5 md:gap-2 mb-2">
@@ -421,7 +414,6 @@ export default function HomePage() {
                             )}
                         </div>
 
-                        {/* 🔥 LINK TERPOPULER JUGA SUDAH PAKAI SLUG 🔥 */}
                         <div className="lg:col-span-4 flex flex-col gap-6 md:gap-8">
                             <AdSlot label="IKLAN KOTAK (300x250)" image={ads?.sidebarTop?.image} link={ads?.sidebarTop?.link} height="h-[180px] md:h-[250px]" className="rounded-xl" />
 
@@ -434,7 +426,7 @@ export default function HomePage() {
                                         <p className={`text-[10px] md:text-xs text-center py-4 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Belum ada data.</p>
                                     ) : (
                                         trendingList.map((item, idx) => (
-                                            <Link key={item.id} href={createSlug(item.title, item.id)} className={`flex gap-3 group items-start border-b pb-3 last:border-0 last:pb-0 ${isDarkMode ? 'border-slate-700/50' : 'border-slate-50'}`}>
+                                            <Link key={item.id} href={createSlug(item.title)} className={`flex gap-3 group items-start border-b pb-3 last:border-0 last:pb-0 ${isDarkMode ? 'border-slate-700/50' : 'border-slate-50'}`}>
                                                 <div className={`w-14 h-14 md:w-20 md:h-20 rounded-lg overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
                                                     <img src={item.image_url || '/placeholder-news.jpg'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt={item.title} />
                                                     <div className="absolute top-0 left-0 bg-blue-600 text-white text-[8px] md:text-[10px] font-black w-4 h-4 md:w-5 md:h-5 flex items-center justify-center rounded-br-lg">{idx + 1}</div>
@@ -471,8 +463,8 @@ export default function HomePage() {
                         <div>
                             <h4 className="font-black text-sm md:text-lg mb-3 md:mb-4 text-blue-500 italic">Kategori Utama</h4>
                             <ul className="space-y-2 text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-widest">
-                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => handleCategoryClick("Politik")}>Politik & Hukum</li>
-                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => handleCategoryClick("Ekonomi")}>Ekonomi Bisnis</li>
+                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => handleCategoryClick("Birokrasi")}>Birokrasi</li>
+                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => handleCategoryClick("Parlemen")}>Parlemen</li>
                             </ul>
                         </div>
                         <div>

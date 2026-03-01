@@ -10,6 +10,7 @@ import {
   X, Edit3, MessageSquareWarning, AlertCircle
 } from 'lucide-react';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function WorkspaceWartawan() {
   const { profile, user } = useAuth(); 
@@ -25,6 +26,8 @@ export default function WorkspaceWartawan() {
   const [myNewsStats, setMyNewsStats] = useState({ published: 0, rejected: 0, pending: 0 });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false); 
+
   const [modalFilter, setModalFilter] = useState('');
   const [modalNews, setModalNews] = useState([]);
   const [isModalLoading, setIsModalLoading] = useState(false);
@@ -35,15 +38,15 @@ export default function WorkspaceWartawan() {
     id: null, 
     title: '',
     content: '',
-    photo_source: 'SultraFiks',
+    photo_source: '', 
     photo_caption: '',
-    news_link: '',
-    category: 'Pemerintah'
+    category: 'Kilas Daerah',
+    revision_note: '' 
   });
 
   const categories = [
-    'Terbaru', 'Pemerintah', 'Travel', 'Food', 'Teknologi', 
-    'Politik', 'Ekonomi', 'Budaya', 'Otomotif', 'Entertainment', 'Opini', 'Loker'
+    'Kilas Daerah', 'Birokrasi', 'Parlemen', 'Delik', 'Arena', 
+    'Showbiz', 'Edukes', 'Nusantara', 'Ruang Publik'
   ];
 
   useEffect(() => {
@@ -121,10 +124,10 @@ export default function WorkspaceWartawan() {
       id: newsItem.id,
       title: newsItem.title,
       content: newsItem.content,
-      photo_source: newsItem.photo_source || 'SultraFiks',
+      photo_source: newsItem.photo_source || '',
       photo_caption: newsItem.photo_caption || '',
-      news_link: newsItem.news_link || '',
-      category: newsItem.category || 'Pemerintah'
+      category: newsItem.category || 'Kilas Daerah',
+      revision_note: newsItem.revision_note || '' 
     });
     setPreview(newsItem.image_url); 
     setImageFile(null); 
@@ -150,17 +153,18 @@ export default function WorkspaceWartawan() {
     }
   };
 
+  // 🔥 FUNGSI SUBMIT SUPER KETAT & ANTI SILENT-FAILURE 🔥
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const currentUserId = user?.id || profile?.id;
-    if (!currentUserId) return alert("Identitas profil belum termuat sempurna. Tunggu sampai tulisan 'Menunggu Profil' hilang, Bos!");
-
+    if (!currentUserId) return alert("Identitas profil belum termuat. Tunggu sebentar Bos!");
     if (!form.title || !form.content) return alert("Judul dan isi berita wajib diisi, Bos!");
     
     setLoading(true);
+    
     try {
-      let uploadedImageUrl = preview; 
+      let uploadedImageUrl = preview || null; 
       
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
@@ -168,48 +172,76 @@ export default function WorkspaceWartawan() {
         
         const { error: uploadError } = await supabase.storage
           .from('news-images')
-          .upload(fileName, imageFile); 
+          .upload(fileName, imageFile, { cacheControl: '3600', upsert: true });
         
-        if (uploadError) {
-            console.error("Error Detail Storage:", uploadError);
-            throw new Error("Gagal upload foto ke satelit: " + uploadError.message);
-        }
+        if (uploadError) throw new Error("Gagal upload foto. Cek Storage Supabase.");
         
         const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(fileName);
         uploadedImageUrl = urlData.publicUrl;
       }
-
-      const payload = {
+      
+      // 🔥 PISAHKAN LOGIKA PAYLOAD UNTUK UPDATE DAN INSERT 🔥
+      const payloadUpdate = {
         title: form.title,
         content: form.content,
-        image_url: uploadedImageUrl, 
-        photo_source: form.photo_source,
-        photo_caption: form.photo_caption,
-        news_link: form.news_link,
         category: form.category,
-        author_id: currentUserId,
-        status: 'waiting_review', 
-        revision_note: null 
+        status: 'waiting_review', // Wajib berubah jadi ini agar masuk ke Redaktur!
+        revision_note: ""         // Hapus catatan redaktur setelah direvisi
       };
 
+      if (uploadedImageUrl) { payloadUpdate.image_url = uploadedImageUrl; }
+      if (form.photo_source) { payloadUpdate.photo_source = form.photo_source.trim(); }
+      if (form.photo_caption) { payloadUpdate.photo_caption = form.photo_caption.trim(); }
+
       if (form.id) {
-        const { error } = await supabase.from('news').update(payload).eq('id', form.id);
+        // --- JALUR REVISI (UPDATE) ---
+        const { data, error } = await supabase
+          .from('news')
+          .update(payloadUpdate)
+          .eq('id', form.id)
+          .select(); // Memaksa Supabase mengembalikan data yang diubah
+
         if (error) throw new Error(error.message);
+        
+        // Detektor Silent Failure: Jika panjang data 0, berarti Database gagal menimpa!
+        if (!data || data.length === 0) {
+           throw new Error("Gagal menimpa data! Database menolak update. Pastikan ID berita valid.");
+        }
+
         alert("Gacor! Berita Revisi berhasil dikirim ulang ke Redaksi.");
+        
       } else {
-        const { error } = await supabase.from('news').insert([payload]);
+        // --- JALUR BERITA BARU (INSERT) ---
+        const payloadInsert = {
+            ...payloadUpdate,
+            author_id: currentUserId,
+            is_headline: false,
+            views: 0,
+            likes_count: 0
+        };
+
+        const { data, error } = await supabase
+          .from('news')
+          .insert([payloadInsert])
+          .select();
+
         if (error) throw new Error(error.message);
-        alert("Gacor Bos! Berita Baru beserta Foto berhasil dikirim ke Meja Redaksi.");
+        if (!data || data.length === 0) throw new Error("Gagal membuat berita baru!");
+
+        alert("Gacor Bos! Berita Baru berhasil masuk ke Meja Redaksi.");
       }
 
-      setForm({ id: null, title: '', content: '', photo_source: 'SultraFiks', photo_caption: '', news_link: '', category: 'Pemerintah' });
+      // Reset semua form setelah 100% sukses
+      setForm({ id: null, title: '', content: '', photo_source: '', photo_caption: '', category: 'Kilas Daerah', revision_note: '' });
       setPreview(null);
       setImageFile(null);
-      fetchMyNewsStats(); 
+      
+      // Tarik ulang status berita agar Kotak Peringatan Revisi langsung hilang
+      await fetchMyNewsStats(); 
       
     } catch (err) {
-      console.error("ERROR KIRIM BERITA:", err);
-      alert("TERJADI KESALAHAN:\n" + err.message);
+      console.error("🔥 ERROR TERCEGAT:", err);
+      alert("⚠️ GAGAL KIRIM:\n" + err.message);
     } finally {
       setLoading(false); 
     }
@@ -218,6 +250,78 @@ export default function WorkspaceWartawan() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-800 pb-20 relative overflow-x-hidden">
       
+      {/* MODAL PREVIEW BERITA SUNGGUHAN */}
+      <AnimatePresence>
+        {isPreviewOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 md:p-6 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white w-full max-w-4xl rounded-3xl md:rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-5 md:px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h2 className="text-sm md:text-lg font-black italic uppercase tracking-tight text-slate-900 flex items-center gap-2">
+                  <Eye size={20} className="text-blue-600" /> Preview Hasil Berita
+                </h2>
+                <button onClick={() => setIsPreviewOpen(false)} className="p-2 bg-white hover:bg-red-50 hover:text-red-500 rounded-full text-slate-500 transition-colors shadow-sm border border-slate-200">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-5 md:p-8 overflow-y-auto flex-1 bg-white">
+                <div className="max-w-3xl mx-auto">
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-1 rounded">News / {form.category}</span>
+                  <h1 className="text-2xl md:text-4xl font-black leading-tight text-slate-900 mt-4 mb-6 break-words">
+                    {form.title || 'Judul Berita Belum Diisi...'}
+                  </h1>
+                  
+                  <div className="w-full aspect-video rounded-2xl md:rounded-3xl bg-slate-100 mb-3 relative overflow-hidden shadow-md border border-slate-100">
+                    {preview ? (
+                      <img src={preview} className="w-full h-full object-cover" alt="Preview" />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                        <ImageIcon size={48} className="mb-2 opacity-50"/>
+                        <span className="font-bold text-sm">Belum Ada Foto Terpilih</span>
+                      </div>
+                    )}
+                    
+                    {!form.photo_source && preview && (
+                       <div className="absolute bottom-3 right-3 flex items-center gap-1.5 opacity-80 z-10">
+                          <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1 rounded text-white shadow-sm shrink-0">
+                              <Zap className="w-3 h-3 fill-white text-white" />
+                          </div>
+                          <span className="text-white text-sm font-black italic tracking-tighter shadow-black drop-shadow-md">
+                              SULTRA<span className="text-blue-400">FIKS</span>
+                          </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between text-[10px] md:text-xs text-slate-500 italic mb-8 border-b border-slate-100 pb-6">
+                    <p className="text-left w-2/3 break-words">{form.photo_caption || 'Caption foto belum ditulis...'}</p>
+                    {form.photo_source && <p className="font-bold uppercase tracking-widest text-right break-words">Sumber: {form.photo_source}</p>}
+                  </div>
+
+                  <article className="prose max-w-none text-slate-800 leading-relaxed text-sm md:text-base text-justify whitespace-pre-wrap break-words">
+                    {form.content ? form.content.split('\n').map((p, i) => {
+                        if (!p.trim()) return null;
+                        if (p.trim().startsWith('>')) {
+                            return (
+                                <div key={i} className="my-6 pl-4 md:pl-5 border-l-[3px] border-blue-600 py-3 rounded-r-xl bg-blue-50/30">
+                                    <p className="italic font-semibold leading-relaxed text-slate-700 break-words">
+                                        <span className="text-blue-600 mr-1 text-xl leading-none">“</span>
+                                        {p.trim().substring(1).trim()}
+                                        <span className="text-blue-600 ml-1 text-xl leading-none">”</span>
+                                    </p>
+                                </div>
+                            );
+                        }
+                        return <p key={i} className="mb-4 break-words">{p}</p>;
+                    }) : <div className="text-slate-400 italic">Isi berita masih kosong, silakan tulis di form editor...</div>}
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* POP-UP MODAL DAFTAR BERITA SAYA */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -256,6 +360,7 @@ export default function WorkspaceWartawan() {
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                           <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 md:px-3 py-1 rounded-full">{item.category}</span>
+                          {item.is_headline && <span className="ml-2 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2 md:px-3 py-1 rounded-full">Headline</span>}
                           <h3 className="text-base md:text-lg font-black leading-tight text-slate-900 mt-2 md:mt-3 line-clamp-2">{item.title}</h3>
                           <p className="text-xs md:text-sm text-slate-500 mt-2 line-clamp-2">{item.content}</p>
                         </div>
@@ -287,12 +392,11 @@ export default function WorkspaceWartawan() {
       {/* --- NAVBAR ATAS YANG SUDAH RESPONSIF --- */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between shadow-sm gap-2 md:gap-4">
         
-        {/* Kiri: Logo & Teks */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
             <Send className="text-white w-4 h-4 md:w-5 md:h-5" />
           </div>
-          <div className="hidden sm:block"> {/* Teks disembunyikan di HP sangat kecil agar tidak balapan */}
+          <div className="hidden sm:block">
             <h1 className="font-black italic text-sm md:text-xl tracking-tighter text-blue-600 uppercase leading-none">
               <span className="hidden md:inline">ADMIN </span>SULTRAFIKS
             </h1>
@@ -300,7 +404,6 @@ export default function WorkspaceWartawan() {
           </div>
         </div>
         
-        {/* Kanan: Tombol & Dropdown */}
         <div className="flex items-center gap-2 md:gap-4 shrink-0 ml-auto">
           
           <div className="relative shrink-0" ref={dropdownRef}>
@@ -364,8 +467,11 @@ export default function WorkspaceWartawan() {
             )}
           </div>
 
-          <button className="hidden md:flex items-center gap-2 px-3 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
-            <Eye size={18} /> Preview
+          <button 
+            onClick={() => setIsPreviewOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+          >
+            <Eye size={18} /> <span className="hidden md:inline">Preview</span>
           </button>
           
           <button 
@@ -373,7 +479,6 @@ export default function WorkspaceWartawan() {
             disabled={loading}
             className={`flex items-center justify-center gap-1.5 md:gap-2 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-full font-black italic text-[9px] md:text-xs uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0 ${form.id ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30'}`}
           >
-            {/* Teks panjang di laptop, disingkat di HP */}
             <span className="hidden sm:inline">{loading ? "MENGIRIM..." : form.id ? "KIRIM REVISI" : "KIRIM KE REDAKSI"}</span>
             <span className="sm:hidden">{loading ? "..." : form.id ? "REVISI" : "KIRIM"}</span>
             <Send size={12} className="md:w-3.5 md:h-3.5" />
@@ -416,13 +521,28 @@ export default function WorkspaceWartawan() {
 
           <div className={`bg-white rounded-3xl md:rounded-[2rem] p-5 md:p-8 shadow-xl shadow-slate-200/50 border min-h-[500px] md:min-h-[700px] flex flex-col transition-colors ${form.id ? 'border-amber-300 ring-2 md:ring-4 ring-amber-50' : 'border-slate-100'}`}>
             
+            {/* 🔥 KOTAK REVISI BARU: TAMPILKAN CATATAN REDAKTUR SAAT NGEDIT 🔥 */}
             {form.id && (
-              <div className="mb-5 md:mb-6 bg-amber-50 border border-amber-200 text-amber-800 px-3 md:px-4 py-2.5 md:py-3 rounded-xl md:rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs md:text-sm font-bold animate-in fade-in">
-                <div className="flex items-center gap-2 md:gap-3">
-                  <Edit3 size={16} className="animate-pulse shrink-0 md:w-[18px] md:h-[18px]"/> 
-                  <span>Mode Perbaikan: Anda sedang merevisi berita.</span>
+              <div className="mb-5 md:mb-6 bg-amber-50 border border-amber-200 p-4 md:p-5 rounded-xl md:rounded-2xl animate-in fade-in shadow-sm">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-amber-200/60 pb-3 mb-3">
+                  <div className="flex items-center gap-2 md:gap-3 text-amber-800 font-black text-xs md:text-sm uppercase tracking-widest">
+                    <Edit3 size={18} className="animate-pulse shrink-0"/> 
+                    <span>Mode Perbaikan Berita</span>
+                  </div>
+                  <button onClick={() => {setForm({id:null, title:'', content:'', photo_source:'', photo_caption:'', category:'Kilas Daerah', revision_note: ''}); setPreview(null);}} className="text-[10px] md:text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 px-4 py-2 rounded-lg transition-colors font-bold whitespace-nowrap shadow-sm">
+                    Batal Edit
+                  </button>
                 </div>
-                <button onClick={() => {setForm({id:null, title:'', content:'', photo_source:'SultraFiks', photo_caption:'', news_link:'', category:'Pemerintah'}); setPreview(null);}} className="text-[10px] md:text-xs bg-amber-200 hover:bg-amber-300 text-amber-900 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Batal Edit</button>
+                
+                {/* Kotak Khusus Pesan Redaktur */}
+                <div className="bg-white/60 p-3 md:p-4 rounded-lg border border-amber-100">
+                  <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-red-600 mb-1.5 flex items-center gap-1.5">
+                    <MessageSquareWarning size={14} /> Pesan / Catatan Redaktur:
+                  </p>
+                  <p className="text-xs md:text-sm font-medium text-amber-900 italic leading-relaxed">
+                    "{form.revision_note || 'Mohon perbaiki kembali berita ini agar sesuai standar redaksi.'}"
+                  </p>
+                </div>
               </div>
             )}
 
@@ -435,12 +555,12 @@ export default function WorkspaceWartawan() {
               </button>
             </div>
 
-            <input 
-              type="text" 
+            <textarea 
               placeholder="Judul Berita Utama..." 
               value={form.title}
+              rows={2}
               onChange={(e) => setForm({...form, title: e.target.value})}
-              className="w-full text-2xl md:text-4xl font-black text-slate-900 placeholder:text-slate-200 outline-none mb-4 md:mb-6 bg-transparent"
+              className="w-full text-2xl md:text-4xl font-black text-slate-900 placeholder:text-slate-200 outline-none mb-4 md:mb-6 bg-transparent resize-none leading-tight break-words whitespace-pre-wrap"
             />
 
             <textarea 
@@ -448,7 +568,7 @@ export default function WorkspaceWartawan() {
               placeholder="Mulai menulis berita di sini..."
               value={form.content}
               onChange={(e) => setForm({...form, content: e.target.value})}
-              className="w-full flex-1 resize-none text-base md:text-lg text-slate-700 leading-relaxed placeholder:text-slate-300 outline-none bg-transparent"
+              className="w-full flex-1 resize-none text-base md:text-lg text-slate-700 leading-relaxed placeholder:text-slate-300 outline-none bg-transparent break-words whitespace-pre-wrap"
             />
           </div>
         </div>
@@ -493,27 +613,17 @@ export default function WorkspaceWartawan() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1"><ImageIcon size={10}/> Sumber Foto</label>
-                  <input 
-                    type="text" 
-                    value={form.photo_source}
-                    placeholder="SultraFiks / Antara"
-                    onChange={(e) => setForm({...form, photo_source: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1"><LinkIcon size={10}/> Link Terkait</label>
-                  <input 
-                    type="text" 
-                    value={form.news_link}
-                    placeholder="https://..."
-                    onChange={(e) => setForm({...form, news_link: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
-                  />
-                </div>
+              <div>
+                <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 md:mb-2 flex items-center gap-1">
+                  <ImageIcon size={10}/> Sumber Foto
+                </label>
+                <input 
+                  type="text" 
+                  value={form.photo_source}
+                  placeholder="Kosongkan jika foto asli jepretan sendiri"
+                  onChange={(e) => setForm({...form, photo_source: e.target.value})}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl px-3 md:px-4 py-2.5 md:py-3 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 ring-blue-500/20"
+                />
               </div>
 
               <div>

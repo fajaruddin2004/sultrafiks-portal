@@ -1,158 +1,146 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, LogIn } from "lucide-react";
+import { Send, AlertTriangle, KeyRound } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
+  const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
+  // 🔥 FUNGSI LOGIN PAKAI JALUR BELAKANG (RAW FETCH API - ANTI ABORT) 🔥
   const handleLogin = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); 
+    
     setLoading(true);
-    setError(null);
+    setErrorMsg("");
 
     try {
-      console.log("1. Mengirim request ke Supabase...");
-
-      // 🔥 PERBAIKAN 1: Tukang Sapu dihapus dari sini agar tidak memotong sesi baru di HP.
-      // Biarkan Supabase otomatis menimpa sesi lama dengan yang baru.
-
-      // 🔥 PERBAIKAN 2: BOM WAKTU DITAMBAH JADI 20 DETIK
-      // Jaringan HP (Telkomsel/Indosat dll) kadang butuh waktu lebih lama untuk merespons
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Koneksi lambat atau gagal. Pastikan sinyal HP bagus Bos!")), 20000)
-      );
-
-      const loginPromise = supabase.auth.signInWithPassword({
-        email: email.trim(),
+      console.log("1. Mengirim request login ke Supabase Auth...");
+      
+      // Langkah 1: Cek Email & Password
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
         password,
       });
 
-      // Balapan antara proses login vs waktu batas 20 detik
-      const { data, error: loginError } = await Promise.race([loginPromise, timeoutPromise]);
+      if (authError) throw new Error("Email atau password salah bos!");
+      if (!authData.user) throw new Error("Tidak ada data user yang dikembalikan.");
 
-      if (loginError) throw new Error(loginError.message);
-      
-      if (!data || !data.user) {
-        throw new Error("Akun bermasalah di database!");
+      console.log("2. Login sukses, ID User:", authData.user.id);
+      console.log("3. Mengecek KTP via Jalur Belakang (Raw Fetch)...");
+
+      // Langkah 2: Cek KTP pakai Raw API agar tidak kena AbortError!
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${authData.user.id}&select=*`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          // Gunakan token asli user yang baru login agar Satpam RLS membukakan pintu
+          'Authorization': `Bearer ${authData.session.access_token}` 
+        }
+      });
+
+      if (!response.ok) {
+         throw new Error("Koneksi ke tabel profil ditolak oleh server!");
       }
 
-      console.log("2. Login berhasil, mengecek profil...");
-      
-      // Mengambil data profile
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle();
-        
-      if (profileError) {
-        console.error("Error Cek Profil:", profileError);
-        // Kalau koneksi putus saat ngecek profil, paksa error biar gak nyasar!
-        throw new Error("Gagal mengambil hak akses. Sinyal putus atau database menolak.");
+      const profiles = await response.json();
+
+      if (!profiles || profiles.length === 0) {
+          throw new Error("KTP Anda tidak ditemukan di tabel 'profiles'.");
       }
 
-      if (!profile || !profile.role) {
-        throw new Error("Akun ini belum diberi jabatan (Role) di database Supabase.");
-      }
+      const profileData = profiles[0];
+      console.log("4. KTP Ditemukan! Jabatan:", profileData.role);
 
-      // AMBIL ROLE & PAKSA JADI HURUF KECIL
-      const userRole = profile.role.toLowerCase();
-      console.log("3. Role ditemukan:", userRole);
-
-      // --- NAVIGASI AGRESIF ---
-      if (userRole === "redaktur") {
-        console.log("Mengarahkan ke Meja Redaktur...");
-        window.location.replace("/admin/redaktur");
-      } else if (userRole === "admin" || userRole === "wartawan") {
-        console.log("Mengarahkan ke Input Berita...");
-        window.location.replace("/admin/input-berita");
+      // Langkah 3: Arahkan ke ruangan yang benar dengan hard-redirect agar state bersih
+      if (profileData.role === "redaktur") {
+        window.location.replace("/admin/redaktur"); 
       } else {
-        // Jangan dilempar ke beranda, munculkan pesan error saja
-        throw new Error(`Jabatan '${userRole}' tidak dikenali sistem.`);
+        window.location.replace("/admin/input-berita"); 
       }
-      
-    } catch (err) {
-      console.error("LOGIN ERROR:", err);
-      // 🔥 PENTING: Mengembalikan tombol ke status "MASUK" jika gagal 🔥
-      setLoading(false); 
-      setError(err?.message || "Terjadi kesalahan sistem.");
+
+    } catch (error) {
+      console.error("🔥 LOGIN ERROR:", error.message);
+      setErrorMsg(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
+        
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black italic text-white tracking-tighter">
+          <h1 className="text-3xl font-black italic text-white uppercase tracking-tighter">
             SULTRAFIKS<span className="text-blue-500">ADMIN</span>
           </h1>
-          <p className="text-slate-400 text-sm mt-2">Masuk ke Dashboard</p>
+          <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">
+            Pintu Gerbang Redaksi
+          </p>
         </div>
 
-        {/* Form Login */}
-        <form onSubmit={handleLogin} className="bg-white rounded-[2.5rem] p-8 shadow-2xl">
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold animate-pulse">
-              {error}
+        <form onSubmit={handleLogin} className="bg-white p-6 md:p-8 rounded-[2rem] shadow-2xl">
+          
+          {errorMsg && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-600">
+              <AlertTriangle className="shrink-0 mt-0.5" size={18} />
+              <p className="text-xs md:text-sm font-bold leading-relaxed">{errorMsg}</p>
             </div>
           )}
 
           <div className="space-y-4">
-            {/* Input Email */}
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Alamat Email</label>
               <input
                 type="email"
-                placeholder="Email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                placeholder="redaktur@sultrafiks.com"
               />
             </div>
 
-            {/* Input Password */}
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              />
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Kata Sandi</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  placeholder="••••••••"
+                />
+                <KeyRound size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
             </div>
-
-            {/* Tombol Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-blue-500/30 active:scale-95 mt-6"
-            >
-              {loading ? "MENGANALISA..." : "MASUK"} <LogIn size={18} />
-            </button>
           </div>
 
-          {/* Navigasi Register */}
-          <p className="mt-8 text-center text-sm text-slate-500 font-medium">
-            Belum punya akun?{" "}
-            <span
-              onClick={() => router.push("/admin/register")}
-              className="text-blue-600 font-black cursor-pointer hover:underline transition-all"
-            >
-              Daftar di sini
-            </span>
-          </p>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-8 flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-xs md:text-sm tracking-widest shadow-lg shadow-blue-500/30 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {loading ? "MEMERIKSA KTP..." : "MASUK KE REDAKSI"}
+            {!loading && <Send size={16} />}
+          </button>
+
+          <div className="mt-6 text-center">
+            <button type="button" onClick={() => router.push('/admin/register')} className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors">
+              Belum punya KTP Pers? <span className="underline">Daftar di sini</span>
+            </button>
+          </div>
         </form>
       </div>
     </div>

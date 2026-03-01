@@ -43,10 +43,11 @@ const getReadingTime = (text) => {
     return Math.ceil(wordCount / 200); 
 };
 
-const createSlug = (title, id) => {
-    if (!title) return `/news/${id}`;
+// 🔥 PEMBUAT SLUG MURNI UNTUK RELATED NEWS 🔥
+const createSlug = (title) => {
+    if (!title) return '#';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    return `/news/${slug}--${id}`;
+    return `/news/${slug}`;
 };
 
 export default function NewsDetail() {
@@ -57,6 +58,7 @@ export default function NewsDetail() {
     const chatEndRef = useRef(null); 
     const commentSectionRef = useRef(null); 
 
+    const [articleId, setArticleId] = useState(null); // Menyimpan ID asli secara rahasia
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [relatedNews, setRelatedNews] = useState([]);
@@ -107,96 +109,103 @@ export default function NewsDetail() {
         localStorage.setItem('theme', newMode ? 'dark' : 'light');
     };
 
+    // 1. MENCARI ARTIKEL MENGGUNAKAN JUDUL (SLUG) BUKAN ID
     useEffect(() => {
         if (!params.id) return;
-        const rawParam = String(params.id);
-        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+        
+        // Membaca Judul dari URL (yang tadinya format slug seperti: "kendari-bebas-sampah")
+        const slugParam = decodeURIComponent(String(params.id));
 
         const fetchArticleData = async () => {
-            const { data: currentArticle, error: articleError } = await supabase
-                .from('news')
-                .select('*')
-                .eq('id', targetId)
-                .single();
+            // Tarik seluruh berita untuk dicocokkan judulnya
+            const { data: allNews, error } = await supabase.from('news').select('*');
 
-            if (currentArticle) {
-                const viewedKey = `viewed_${targetId}`;
-                const hasViewed = sessionStorage.getItem(viewedKey);
-                
-                let currentViews = currentArticle.views || 0;
-                if (currentViews < 25) { currentViews = 25 + currentViews; }
+            if (allNews && allNews.length > 0) {
+                // Temukan berita yang judul slug-nya cocok dengan URL
+                const currentArticle = allNews.find(item => {
+                    if(!item.title) return false;
+                    const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                    return itemSlug === slugParam;
+                });
 
-                if (!hasViewed) {
-                    currentViews += 1;
-                    sessionStorage.setItem(viewedKey, 'true'); 
-                    supabase.from('news').update({ views: currentViews }).eq('id', targetId).then();
-                }
+                if (currentArticle) {
+                    const targetId = currentArticle.id;
+                    setArticleId(targetId); // Simpan ID asli secara rahasia
 
-                currentArticle.views = currentViews;
-                setArticle(currentArticle);
-                
-                if (news && news.length > 0) {
-                    setRelatedNews(news.filter(item => item.category === currentArticle.category && String(item.id) !== targetId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4));
-                }
-
-                const rawAuthor = currentArticle.author || currentArticle.penulis || currentArticle.wartawan;
-                const rawEditor = currentArticle.editor || currentArticle.redaktur;
-                const authorId = currentArticle.author_id || currentArticle.user_id; 
-
-                let authorState = { name: rawAuthor || 'Tim Redaksi SultraFiks', avatar: null };
-                let editorState = { name: rawEditor || 'Admin SultraFiks', avatar: null };
-
-                if (rawAuthor || authorId) {
-                    let query = supabase.from('profiles').select('*');
-                    if (authorId) query = query.eq('id', authorId);
-                    else query = query.or(`full_name.ilike.%${rawAuthor}%,username.ilike.%${rawAuthor}%`);
+                    const viewedKey = `viewed_${targetId}`;
+                    const hasViewed = sessionStorage.getItem(viewedKey);
                     
-                    const { data: profile } = await query.maybeSingle();
-                    if (profile) {
-                        authorState.name = profile.full_name || profile.username || rawAuthor;
-                        authorState.avatar = profile.avatar_url || null;
-                    }
-                }
+                    let currentViews = currentArticle.views || 0;
+                    if (currentViews < 25) { currentViews = 25 + currentViews; }
 
-                if (rawEditor) {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .or(`full_name.ilike.%${rawEditor}%,username.ilike.%${rawEditor}%`)
-                        .maybeSingle();
-                    if (profile) {
-                        editorState.name = profile.full_name || profile.username || rawEditor;
-                        editorState.avatar = profile.avatar_url || null;
+                    if (!hasViewed) {
+                        currentViews += 1;
+                        sessionStorage.setItem(viewedKey, 'true'); 
+                        supabase.from('news').update({ views: currentViews }).eq('id', targetId).then();
                     }
-                }
 
-                setAuthorData(authorState);
-                setEditorData(editorState);
-                setLoading(false);
+                    currentArticle.views = currentViews;
+                    setArticle(currentArticle);
+                    
+                    // Related News
+                    setRelatedNews(allNews.filter(item => item.category === currentArticle.category && item.id !== targetId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4));
+
+                    const rawAuthor = currentArticle.author || currentArticle.penulis || currentArticle.wartawan;
+                    const rawEditor = currentArticle.editor || currentArticle.redaktur;
+                    const authId = currentArticle.author_id || currentArticle.user_id; 
+
+                    let authorState = { name: rawAuthor || 'Tim Redaksi SultraFiks', avatar: null };
+                    let editorState = { name: rawEditor || 'Admin SultraFiks', avatar: null };
+
+                    if (rawAuthor || authId) {
+                        let query = supabase.from('profiles').select('*');
+                        if (authId) query = query.eq('id', authId);
+                        else query = query.or(`full_name.ilike.%${rawAuthor}%,username.ilike.%${rawAuthor}%`);
+                        
+                        const { data: profile } = await query.maybeSingle();
+                        if (profile) {
+                            authorState.name = profile.full_name || profile.username || rawAuthor;
+                            authorState.avatar = profile.avatar_url || null;
+                        }
+                    }
+
+                    if (rawEditor) {
+                        const { data: profile } = await supabase.from('profiles').select('*').or(`full_name.ilike.%${rawEditor}%,username.ilike.%${rawEditor}%`).maybeSingle();
+                        if (profile) {
+                            editorState.name = profile.full_name || profile.username || rawEditor;
+                            editorState.avatar = profile.avatar_url || null;
+                        }
+                    }
+
+                    setAuthorData(authorState);
+                    setEditorData(editorState);
+                    setLoading(false);
+                } else {
+                    setLoading(false); // Berita tidak ditemukan
+                }
             }
         };
 
         fetchArticleData();
-    }, [params.id, news]);
+    }, [params.id]);
 
+    // 2. FETCH LIKES & COMMENTS (Berjalan SETELAH articleId diketahui)
     useEffect(() => {
-        if (!params.id) return;
-        const rawParam = String(params.id);
-        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
+        if (!articleId) return;
 
         const fetchInteractions = async () => {
-            const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', targetId).single();
+            const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
             if (newsData) setLikesCount(newsData.likes_count || 10);
-            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', targetId).order('created_at', { ascending: false });
+            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
         fetchInteractions();
 
         const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
-        if (likedHistory.includes(targetId)) setIsLiked(true);
+        if (likedHistory.includes(articleId)) setIsLiked(true);
         const savedHistory = JSON.parse(localStorage.getItem('saved_articles') || '[]');
-        if (savedHistory.includes(targetId)) setIsSaved(true);
-    }, [params.id]);
+        if (savedHistory.includes(articleId)) setIsSaved(true);
+    }, [articleId]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, isAIChatOpen]);
 
@@ -206,35 +215,32 @@ export default function NewsDetail() {
     };
 
     const handleLikeClick = async () => {
+        if (!articleId) return;
         if (isLiked) {
             showToast("Anda sudah menyukai berita ini! ❤️");
             return;
         }
-        const rawParam = String(params.id);
-        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
 
         const newCount = likesCount + 1;
         setLikesCount(newCount);
         setIsLiked(true);
         showToast("Terima kasih atas apresiasinya! ❤️");
         const likedHistory = JSON.parse(localStorage.getItem('liked_articles') || '[]');
-        likedHistory.push(targetId);
+        likedHistory.push(articleId);
         localStorage.setItem('liked_articles', JSON.stringify(likedHistory));
-        await supabase.from('news').update({ likes_count: newCount }).eq('id', targetId);
+        await supabase.from('news').update({ likes_count: newCount }).eq('id', articleId);
     };
 
     const handleBookmark = () => {
-        const rawParam = String(params.id);
-        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
-
+        if (!articleId) return;
         const savedHistory = JSON.parse(localStorage.getItem('saved_articles') || '[]');
         if (isSaved) {
-            const newHistory = savedHistory.filter(id => id !== targetId);
+            const newHistory = savedHistory.filter(id => id !== articleId);
             localStorage.setItem('saved_articles', JSON.stringify(newHistory));
             setIsSaved(false);
             showToast("Berita dihapus dari Bookmark! 🗑️");
         } else {
-            savedHistory.push(targetId);
+            savedHistory.push(articleId);
             localStorage.setItem('saved_articles', JSON.stringify(savedHistory));
             setIsSaved(true);
             showToast("Berita disimpan ke Bookmark! 🔖");
@@ -245,14 +251,12 @@ export default function NewsDetail() {
 
     const handlePostComment = async (e) => {
         e.preventDefault();
+        if (!articleId) return;
         if (!commentForm.name.trim() || !commentForm.content.trim()) return showToast("Nama dan komentar wajib diisi! ✍️");
         setIsSubmitting(true);
-        
-        const rawParam = String(params.id);
-        const targetId = rawParam.includes('--') ? rawParam.split('--').pop() : rawParam;
 
         try {
-            const { data, error } = await supabase.from('comments').insert([{ news_id: targetId, user_name: commentForm.name, content: commentForm.content }]).select();
+            const { data, error } = await supabase.from('comments').insert([{ news_id: articleId, user_name: commentForm.name, content: commentForm.content }]).select();
             if (error) throw error;
             if (data) {
                 setComments([data[0], ...comments]);
@@ -265,7 +269,6 @@ export default function NewsDetail() {
     // 🔥 LOGIKA SHARE DIPERBARUI AGAR ROBOT WA BISA MEMBACA GAMBAR 🔥
     const handleShare = async (platform) => {
         const currentUrl = window.location.href; 
-        
         // Format Teks WhatsApp yang sangat disukai Robot WA (URL harus ada di baris baru)
         const waText = `*${article?.title}*\n\nBaca selengkapnya di SultraFiks:\n${currentUrl}`;
         
@@ -409,7 +412,7 @@ export default function NewsDetail() {
                             </div>
                         </div>
 
-                        {/* GAMBAR UTAMA DENGAN WATERMARK ELEGAN */}
+                        {/* GAMBAR UTAMA */}
                         <div className={`mb-2 md:mb-3 rounded-2xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl relative w-full aspect-[4/3] md:aspect-video bg-slate-100`}>
                             {article?.image_url ? (
                                 <div className="relative group overflow-hidden w-full h-full">
@@ -434,12 +437,11 @@ export default function NewsDetail() {
                             )}
                         </div>
                         
-                        {/* CAPTION FOTO & SUMBER DENGAN ORDER CSS UNTUK MOBILE */}
+                        {/* CAPTION FOTO & SUMBER */}
                         <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-6 md:mb-8 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             <p className="text-left order-2 md:order-1">
                                 {article?.photo_caption || "Ilustrasi berita."}
                             </p>
-                            
                             {article?.photo_source && article.photo_source.trim() !== '' && (
                                 <p className="font-bold uppercase tracking-widest text-left md:text-right order-1 md:order-2">
                                     Sumber: {article.photo_source}
@@ -447,7 +449,7 @@ export default function NewsDetail() {
                             )}
                         </div>
 
-                        {/* ISI BERITA (SEMUA FONT MODERN SANS-SERIF) */}
+                        {/* ISI BERITA */}
                         <article className={`prose max-w-none mb-8 md:mb-10 transition-colors ${isDarkMode ? 'prose-invert text-slate-300' : 'text-slate-800'}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
                             {article?.content?.split('\n').map((p, i) => {
                                 if (!p.trim()) return null;
@@ -467,13 +469,13 @@ export default function NewsDetail() {
                             })}
                         </article>
 
-                        {/* PROFIL WARTAWAN & REDAKTUR (SISTEM HIDDEN/ACCORDION) */}
+                        {/* PROFIL WARTAWAN */}
                         <div className={`mt-8 mb-8 pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <button 
                                 onClick={() => setShowRedaksi(!showRedaksi)}
                                 className={`flex items-center gap-2 text-xs md:text-sm font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-blue-600'}`}
                             >
-                                Informasi Redaksi
+                                Tim Redaksi
                                 <motion.div animate={{ rotate: showRedaksi ? 180 : 0 }}>
                                     <ChevronDown className="w-4 h-4 md:w-5 md:h-5" />
                                 </motion.div>
@@ -640,7 +642,7 @@ export default function NewsDetail() {
                                     </div>
                                 ) : (
                                     relatedNews.map((item) => (
-                                        <Link href={createSlug(item.title, item.id)} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
+                                        <Link href={createSlug(item.title)} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
                                             <div className="flex-1">
                                                 <h4 className={`font-bold text-xs md:text-sm line-clamp-2 transition-colors leading-snug ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{item.title}</h4>
                                                 <span className={`text-[9px] md:text-[10px] uppercase font-black tracking-widest flex items-center gap-1 mt-1.5 md:mt-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
