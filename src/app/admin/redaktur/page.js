@@ -8,7 +8,7 @@ import {
   LogOut, CheckCircle, XCircle, Clock, FileText, Send, Edit3, 
   AlertTriangle, User, X, MessageSquareWarning, ImageIcon, 
   Info, Star, EyeOff, PenBox, UserCircle, UploadCloud, Quote, Type, Save,
-  Settings, Zap // 🔥 INI YANG TADI KETINGGALAN BOS! 🔥
+  Settings, Zap, Search, ExternalLink, Bold, Italic
 } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +22,7 @@ export default function RedakturPage() {
   const [actionLoading, setActionLoading] = useState(false);
   
   const [activeTab, setActiveTab] = useState("antrean");
+  const [searchQuery, setSearchQuery] = useState(""); 
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -177,10 +178,50 @@ export default function RedakturPage() {
     } catch (error) { alert("GAGAL MENARIK BERITA:\n" + error.message); } finally { setActionLoading(false); }
   };
 
+  // 🔥 Fungsi Insert Kutipan (Tanpa Tanda ">" Otomatis)
   const insertCreateQuote = () => {
-    const quoteText = '\n\n> "Masukkan kutipan narasumber di sini..."\n> — Nama Narasumber\n\n';
+    const quoteText = '\n\n"Masukkan kutipan narasumber di sini..."\n— Nama Narasumber\n\n';
     setCreateForm(prev => ({ ...prev, content: prev.content + quoteText }));
     if (createContentRef.current) createContentRef.current.focus();
+  };
+
+  // 🔥 Fungsi Insert Format Bold/Miring Otomatis (Markdown)
+  const handleFormatText = (format) => {
+    const textarea = createContentRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = createForm.content;
+    const selected = text.slice(start, end);
+
+    let before = "";
+    let after = "";
+    let defaultText = "";
+
+    if (format === "bold") {
+      before = "**";
+      after = "**";
+      defaultText = "Teks Tebal";
+    } else if (format === "italic") {
+      before = "*";
+      after = "*";
+      defaultText = "Teks Miring";
+    }
+
+    const insertion = selected || defaultText;
+    const newText = text.slice(0, start) + before + insertion + after + text.slice(end);
+
+    setCreateForm({ ...createForm, content: newText });
+
+    setTimeout(() => {
+      textarea.focus();
+      if (selected) {
+        textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+      } else {
+        textarea.setSelectionRange(start + before.length, start + before.length + defaultText.length);
+      }
+    }, 0);
   };
 
   const handleCreateNewsSubmit = async (e) => {
@@ -251,7 +292,7 @@ export default function RedakturPage() {
     setActionLoading(true);
 
     try {
-        let finalAvatarUrl = profilePreview;
+        let finalAvatarUrl = profile?.avatar_url || null; // Fallback ke foto lama jika tidak ada yg baru
 
         if (profileImageFile) {
             const fileExt = profileImageFile.name.split('.').pop();
@@ -269,8 +310,8 @@ export default function RedakturPage() {
 
         if (updateError) throw updateError;
 
-        alert("Profil berhasil diperbarui! Perubahan akan terlihat setelah refresh.");
-        window.location.reload(); 
+        alert("Profil berhasil diperbarui! Perubahan akan disinkronkan memuat ulang halaman.");
+        window.location.reload(); // 🔥 Reload digunakan agar AuthContext mereset data dan otomatis sinkron ke seluruh aplikasi
 
     } catch (err) {
         alert("Gagal update profil: " + err.message);
@@ -289,6 +330,10 @@ export default function RedakturPage() {
       window.location.href = '/admin/login';
     }
   };
+
+  const displayedNews = activeTab === "sudah_tayang" 
+    ? news.filter(item => item.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : news;
 
   if (authLoading && !profile) {
     return (
@@ -329,17 +374,6 @@ export default function RedakturPage() {
     );
   }
 
-  if (profile.role?.toLowerCase() !== "redaktur") {
-    return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
-        <XCircle size={48} className="text-red-500 mb-4" />
-        <h1 className="text-white text-2xl font-black mb-2">Salah Kamar, Bos!</h1>
-        <p className="text-slate-400 text-sm mb-6">Akun Anda terdaftar sebagai <b>{profile.role}</b>.</p>
-        <button onClick={() => router.replace("/admin/input-berita")} className="px-8 py-4 bg-blue-600 text-white font-black uppercase rounded-2xl text-xs shadow-lg">Buka Workspace Wartawan</button>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans relative overflow-x-hidden">
       
@@ -349,7 +383,7 @@ export default function RedakturPage() {
           <div className="bg-white w-full max-w-7xl h-[95vh] md:h-auto md:min-h-[90vh] rounded-3xl md:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden my-auto border-2 md:border-4 border-amber-200/50">
             <div className="px-4 md:px-8 py-4 md:py-5 border-b border-slate-100 flex items-center justify-between bg-amber-50/50 sticky top-0 z-10">
               <div className="flex items-center gap-3 md:gap-4">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-amber-100 text-amber-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-inner shrink-0">
+                <div className="w-10 h-10 md:w-12 h-12 bg-amber-100 text-amber-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-inner shrink-0">
                   <Edit3 size={20} className="md:w-6 md:h-6" />
                 </div>
                 <div>
@@ -390,7 +424,8 @@ export default function RedakturPage() {
                 
                 <div className="bg-blue-50 p-4 md:p-5 rounded-2xl md:rounded-[2rem] border border-blue-100 flex items-center gap-3 md:gap-4 shadow-sm">
                   <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden bg-blue-200 border-2 border-white shadow flex items-center justify-center text-blue-500 shrink-0">
-                    {editForm.author?.avatar_url ? (
+                    {/* 🔥 Validasi Foto Editor (Mencegah ikon error saat foto tidak valid) */}
+                    {editForm.author?.avatar_url && editForm.author.avatar_url.trim() !== "" ? (
                       <Image src={editForm.author.avatar_url} fill className="object-cover" alt="Wartawan" unoptimized />
                     ) : (
                       <User size={20} className="md:w-6 md:h-6" />
@@ -524,14 +559,14 @@ export default function RedakturPage() {
         </button>
       </header>
 
-      {/* --- SIDEBAR DESKTOP --- */}
-      <aside className="hidden md:flex w-64 bg-[#0F172A] text-white flex-col p-6 sticky top-0 h-screen shrink-0">
+      {/* --- SIDEBAR DESKTOP (🔥 FIXED POSITION) --- */}
+      <aside className="hidden md:flex w-64 bg-[#0F172A] text-white flex-col p-6 fixed top-0 left-0 h-screen shrink-0 z-40 overflow-y-auto">
         <div className="flex items-center gap-3 mb-10 uppercase italic font-black text-xl tracking-tighter">
           SULTRAFIKS<span className="text-blue-500">ADMIN</span>
         </div>
         <nav className="flex-1 space-y-2">
           <div 
-            onClick={() => setActiveTab("antrean")}
+            onClick={() => {setActiveTab("antrean"); setSearchQuery("");}}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold cursor-pointer transition-colors ${activeTab === 'antrean' ? 'bg-blue-600 shadow-lg shadow-blue-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             <FileText size={18} /> Antrean Berita
@@ -543,13 +578,13 @@ export default function RedakturPage() {
             <CheckCircle size={18} /> Sudah Tayang
           </div>
           <div 
-            onClick={() => setActiveTab("tulis_berita")}
+            onClick={() => {setActiveTab("tulis_berita"); setSearchQuery("");}}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold cursor-pointer transition-colors ${activeTab === 'tulis_berita' ? 'bg-amber-500 shadow-lg shadow-amber-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             <PenBox size={18} /> Tulis Berita
           </div>
           <div 
-            onClick={() => setActiveTab("profil")}
+            onClick={() => {setActiveTab("profil"); setSearchQuery("");}}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold cursor-pointer transition-colors ${activeTab === 'profil' ? 'bg-purple-600 shadow-lg shadow-purple-500/20 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
           >
             <UserCircle size={18} /> Profil Redaksi
@@ -558,7 +593,8 @@ export default function RedakturPage() {
         <div className="mt-auto pt-6 border-t border-white/10">
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 mb-4 border border-white/10">
             <div className="w-10 h-10 rounded-xl overflow-hidden relative bg-blue-600 flex items-center justify-center font-black uppercase text-xl shrink-0">
-              {profile?.avatar_url ? (
+              {/* 🔥 Validasi Avatar Sidebar */}
+              {profile?.avatar_url && profile.avatar_url.trim() !== "" ? (
                 <Image src={profile.avatar_url} fill className="object-cover" alt="Profile" unoptimized />
               ) : (
                 profile?.full_name?.charAt(0) || "R"
@@ -578,11 +614,11 @@ export default function RedakturPage() {
       </aside>
 
       {/* --- KONTEN UTAMA --- */}
-      <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 overflow-y-auto w-full">
+      <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 overflow-y-auto w-full md:ml-64">
         <div className="max-w-5xl mx-auto">
           
           <header className="mb-6 md:mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
+            <div className="w-full">
               <h2 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">
                 {activeTab === "antrean" && "Meja Redaksi"}
                 {activeTab === "sudah_tayang" && "Berita Publik"}
@@ -595,6 +631,27 @@ export default function RedakturPage() {
                 {activeTab === "tulis_berita" && "Tulis dan terbitkan berita eksklusif langsung dari meja redaksi."}
                 {activeTab === "profil" && "Kelola identitas dan foto profil Anda."}
               </p>
+
+              {/* 🔥 KOLOM PENCARIAN BERITA */}
+              {activeTab === "sudah_tayang" && (
+                <div className="mt-4 md:mt-6 w-full max-w-xl">
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl md:rounded-2xl px-3 md:px-4 py-2.5 md:py-3 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                    <Search size={18} className="text-slate-400 mr-2 md:w-5 md:h-5" />
+                    <input
+                      type="text"
+                      placeholder="Cari judul berita..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full text-xs md:text-sm font-bold text-slate-700 outline-none bg-transparent placeholder:text-slate-300"
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-red-500 p-1">
+                        <XCircle size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             
             {(activeTab === "antrean" || activeTab === "sudah_tayang") && (
@@ -612,8 +669,12 @@ export default function RedakturPage() {
                       <button onClick={insertCreateQuote} className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
                         <Quote size={16} className="md:w-[18px] md:h-[18px]" /> Kutipan
                       </button>
-                      <button className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
-                        <Type size={16} className="md:w-[18px] md:h-[18px]" /> Format Teks
+                      
+                      <button onClick={() => handleFormatText('bold')} className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
+                        <Bold size={16} className="md:w-[18px] md:h-[18px]" /> Bold
+                      </button>
+                      <button onClick={() => handleFormatText('italic')} className="flex items-center gap-1.5 md:gap-2 hover:text-blue-600 transition-colors whitespace-nowrap">
+                        <Italic size={16} className="md:w-[18px] md:h-[18px]" /> Italic
                       </button>
                     </div>
 
@@ -676,9 +737,9 @@ export default function RedakturPage() {
 
                       <div>
                         <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Thumbnail Berita</label>
-                        <label className="relative block w-full aspect-video rounded-xl md:rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all group">
+                        <label className={`relative block w-full rounded-xl md:rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all group ${!createPreview ? 'aspect-video' : ''}`}>
                           {createPreview ? (
-                            <Image src={createPreview} fill className="object-cover" alt="Preview" unoptimized />
+                            <img src={createPreview} className="w-full h-auto block" alt="Preview" />
                           ) : (
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-amber-500">
                               <UploadCloud size={28} className="md:w-8 md:h-8" />
@@ -731,12 +792,13 @@ export default function RedakturPage() {
           ) : activeTab === "profil" ? (
             <div className="max-w-2xl mx-auto bg-white rounded-3xl md:rounded-[2rem] p-6 md:p-10 shadow-xl shadow-slate-200/50 border border-slate-100 animate-in fade-in">
                 <div className="flex flex-col items-center mb-8 md:mb-10">
-                   <label className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-xl cursor-pointer group mb-4">
-                      {profilePreview ? (
+                   <label className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-xl cursor-pointer group mb-4 flex items-center justify-center">
+                      {/* 🔥 Bug FIX Visual Avatar Terpotong */}
+                      {profilePreview && profilePreview.trim() !== "" ? (
                         <Image src={profilePreview} fill className="object-cover" alt="Profile Avatar" unoptimized />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-purple-100 text-purple-500 font-black text-3xl">
-                            {profileForm.full_name?.charAt(0) || "R"}
+                        <div className="absolute inset-0 flex items-center justify-center bg-purple-100 text-purple-500 font-black text-3xl uppercase">
+                            {profileForm.full_name?.charAt(0) || profile?.full_name?.charAt(0) || "R"}
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -791,17 +853,21 @@ export default function RedakturPage() {
               <Clock className="w-6 h-6 md:w-8 md:h-8 animate-spin mb-3 md:mb-4" />
               <p className="font-bold uppercase tracking-widest text-[10px] md:text-xs">Menarik Data Berita...</p>
             </div>
-          ) : news.length === 0 ? (
-            <div className="bg-white p-10 md:p-20 rounded-3xl md:rounded-[3rem] text-center border-2 border-dashed border-slate-200">
+          ) : displayedNews.length === 0 ? (
+            <div className="bg-white p-10 md:p-20 rounded-3xl md:rounded-[3rem] text-center border-2 border-dashed border-slate-200 mt-6">
               <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
                 <CheckCircle className="text-slate-300 w-6 h-6 md:w-8 md:h-8" />
               </div>
-              <h3 className="text-base md:text-lg font-black text-slate-900 mb-2">Data Kosong!</h3>
-              <p className="text-slate-500 font-medium text-xs md:text-sm">Belum ada berita di kategori ini.</p>
+              <h3 className="text-base md:text-lg font-black text-slate-900 mb-2">
+                {searchQuery ? "Pencarian Tidak Ditemukan!" : "Data Kosong!"}
+              </h3>
+              <p className="text-slate-500 font-medium text-xs md:text-sm">
+                {searchQuery ? "Coba gunakan kata kunci yang lain." : "Belum ada berita di kategori ini."}
+              </p>
             </div>
           ) : (
             <div className="space-y-4 md:space-y-6">
-              {news.map((item) => (
+              {displayedNews.map((item) => (
                 <div key={item.id} className="bg-white p-4 md:p-6 rounded-3xl md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-4 md:gap-8 hover:shadow-xl hover:shadow-slate-200/50 transition-all group relative">
                   
                   <div className="w-full sm:w-40 md:w-48 lg:w-64 aspect-video bg-slate-100 rounded-xl md:rounded-2xl overflow-hidden shrink-0 relative border border-slate-200">
@@ -828,7 +894,10 @@ export default function RedakturPage() {
                         <span>{new Date(item.created_at).toLocaleString("id-ID", { dateStyle: 'medium', timeStyle: 'short' })}</span>
                       </div>
                       <h3 className="text-base md:text-xl font-black text-slate-900 mb-2 md:mb-3 leading-tight md:pr-10 line-clamp-2 md:line-clamp-none">{item.title}</h3>
-                      <p className="text-xs md:text-sm text-slate-600 line-clamp-2 md:line-clamp-3 leading-relaxed">{item.content}</p>
+                      
+                      {activeTab !== "sudah_tayang" && (
+                        <p className="text-xs md:text-sm text-slate-600 line-clamp-2 md:line-clamp-3 leading-relaxed">{item.content}</p>
+                      )}
                     </div>
                     
                     <div className="flex flex-col sm:flex-row items-center gap-2 md:gap-3 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-slate-100">
@@ -867,7 +936,16 @@ export default function RedakturPage() {
                             className="w-full sm:flex-1 flex items-center justify-center gap-1.5 md:gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all border border-slate-200 active:scale-95"
                             title="Tarik kembali dari publik"
                           >
-                            <EyeOff size={14} className="md:w-4 md:h-4"/> Turunkan Berita
+                            <EyeOff size={14} className="md:w-4 md:h-4"/> Turunkan
+                          </button>
+                          
+                          <button
+                            onClick={() => window.open(`/berita/${item.id}`, '_blank')}
+                            disabled={actionLoading}
+                            className="w-full sm:flex-1 flex items-center justify-center gap-1.5 md:gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-green-500/20 active:scale-95"
+                            title="Lihat berita di halaman utama website"
+                          >
+                            <ExternalLink size={14} className="md:w-4 md:h-4"/> Lihat Web
                           </button>
                         </>
                       )}
@@ -884,7 +962,7 @@ export default function RedakturPage() {
       {/* --- NAV BAWAH MOBILE --- */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around p-2 pb-safe z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button 
-          onClick={() => setActiveTab("antrean")} 
+          onClick={() => {setActiveTab("antrean"); setSearchQuery("");}} 
           className={`flex flex-col items-center gap-1 p-2 w-full transition-colors ${activeTab === 'antrean' ? 'text-blue-600' : 'text-slate-400'}`}
         >
           <div className={`${activeTab === 'antrean' ? 'bg-blue-100 p-1.5 rounded-xl' : 'p-1.5'}`}>
@@ -899,10 +977,10 @@ export default function RedakturPage() {
           <div className={`${activeTab === 'sudah_tayang' ? 'bg-blue-100 p-1.5 rounded-xl' : 'p-1.5'}`}>
             <CheckCircle size={20} />
           </div>
-          <span className="text-[9px] font-black uppercase tracking-widest">Terbit</span>
+          <span className="text-[9px] font-black uppercase tracking-widest">Sudah Tayang</span>
         </button>
         <button 
-          onClick={() => setActiveTab("tulis_berita")} 
+          onClick={() => {setActiveTab("tulis_berita"); setSearchQuery("");}} 
           className={`flex flex-col items-center gap-1 p-2 w-full transition-colors ${activeTab === 'tulis_berita' ? 'text-amber-500' : 'text-slate-400'}`}
         >
           <div className={`${activeTab === 'tulis_berita' ? 'bg-amber-100 p-1.5 rounded-xl' : 'p-1.5'}`}>
@@ -911,7 +989,7 @@ export default function RedakturPage() {
           <span className="text-[9px] font-black uppercase tracking-widest">Tulis</span>
         </button>
         <button 
-          onClick={() => setActiveTab("profil")} 
+          onClick={() => {setActiveTab("profil"); setSearchQuery("");}} 
           className={`flex flex-col items-center gap-1 p-2 w-full transition-colors ${activeTab === 'profil' ? 'text-purple-600' : 'text-slate-400'}`}
         >
           <div className={`${activeTab === 'profil' ? 'bg-purple-100 p-1.5 rounded-xl' : 'p-1.5'}`}>

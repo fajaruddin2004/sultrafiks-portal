@@ -555,7 +555,7 @@ export default function NewsDetail() {
                                         <span className={`font-black text-base md:text-lg transition-colors ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{likesCount}</span>
                                     </motion.button>
                                     <motion.button whileTap={{ scale: 0.9 }} onClick={scrollToComments} className={`flex items-center gap-2 transition-colors group cursor-pointer ${isDarkMode ? 'text-slate-400 hover:text-blue-400' : 'text-slate-400 hover:text-blue-600'}`}>
-                                        <MessageCircle className="w-7 h-7 md:w-8 md:h-8 group-hover:fill-blue-500/20" />
+                                        <MessageCircle className="w-7 h-7 md:w-8 md:h-8 group-hover:fill-blue-500/50" />
                                         <span className="font-black text-base md:text-lg group-hover:text-blue-500">{comments.length}</span>
                                     </motion.button>
                                 </div>

@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
-  // 🔥 FUNGSI LOGIN PAKAI JALUR BELAKANG (RAW FETCH API - ANTI ABORT) 🔥
   const handleLogin = async (e) => {
     e.preventDefault(); 
     
@@ -22,7 +21,6 @@ export default function LoginPage() {
     try {
       console.log("1. Mengirim request login ke Supabase Auth...");
       
-      // Langkah 1: Cek Email & Password
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -32,9 +30,8 @@ export default function LoginPage() {
       if (!authData.user) throw new Error("Tidak ada data user yang dikembalikan.");
 
       console.log("2. Login sukses, ID User:", authData.user.id);
-      console.log("3. Mengecek KTP via Jalur Belakang (Raw Fetch)...");
+      console.log("3. Mengecek KTP via Jalur Belakang...");
 
-      // Langkah 2: Cek KTP pakai Raw API agar tidak kena AbortError!
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -43,7 +40,6 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseKey,
-          // Gunakan token asli user yang baru login agar Satpam RLS membukakan pintu
           'Authorization': `Bearer ${authData.session.access_token}` 
         }
       });
@@ -59,13 +55,16 @@ export default function LoginPage() {
       }
 
       const profileData = profiles[0];
-      console.log("4. KTP Ditemukan! Jabatan:", profileData.role);
+      const userRole = profileData.role?.toLowerCase();
+      console.log("4. KTP Ditemukan! Jabatan:", userRole);
 
-      // Langkah 3: Arahkan ke ruangan yang benar dengan hard-redirect agar state bersih
-      if (profileData.role === "redaktur") {
-        window.location.replace("/admin/redaktur"); 
+      // 🔥 LOGIKA PENGARAHAN JALAN YANG SUDAH DIUPDATE 🔥
+      if (userRole === "admin") {
+        window.location.replace("/admin/super"); // Arahkan ke Ruang Super Admin
+      } else if (userRole === "redaktur") {
+        window.location.replace("/admin/dashboard"); // Arahkan ke Meja Redaksi
       } else {
-        window.location.replace("/admin/input-berita"); 
+        window.location.replace("/admin/input-berita"); // Arahkan ke Workspace Wartawan
       }
 
     } catch (error) {
@@ -85,7 +84,7 @@ export default function LoginPage() {
             SULTRAFIKS<span className="text-blue-500">ADMIN</span>
           </h1>
           <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">
-            Pintu Gerbang Redaksi
+            Pintu Gerbang Portal
           </p>
         </div>
 
@@ -107,7 +106,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                placeholder="redaktur@sultrafiks.com"
+                placeholder="email@sultrafiks.com"
               />
             </div>
 
@@ -132,7 +131,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full mt-8 flex items-center justify-center gap-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase text-xs md:text-sm tracking-widest shadow-lg shadow-blue-500/30 active:scale-95 transition-all disabled:opacity-50"
           >
-            {loading ? "MEMERIKSA KTP..." : "MASUK KE REDAKSI"}
+            {loading ? "MEMERIKSA KTP..." : "MASUK SEKARANG"}
             {!loading && <Send size={16} />}
           </button>
 
