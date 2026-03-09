@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
 import AdBanner from "@/components/AdBanner"; 
 
-// 🔥 KONFIGURASI KATEGORI (DIKOPY DARI HOME UNTUK NAVBAR) 🔥
+// 🔥 KONFIGURASI KATEGORI 🔥
 const categoryConfig = {
     "Kilas Daerah": { icon: Map,            color: "from-emerald-500 to-green-500" },
     "Birokrasi":    { icon: Building2,      color: "from-blue-500 to-cyan-500" },
@@ -29,14 +29,12 @@ const categoryConfig = {
   };
 const categories = Object.keys(categoryConfig);
 
-// 🔥 KOMPONEN IKON TIKTOK 🔥
 const TikTokIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93v7.2c0 1.92-.52 3.86-1.6 5.43-1.08 1.58-2.6 2.8-4.39 3.32-1.78.53-3.72.5-5.45-.1-1.73-.6-3.23-1.73-4.26-3.18-1.03-1.44-1.55-3.2-1.5-4.97.05-1.77.67-3.48 1.8-4.86 1.13-1.37 2.68-2.34 4.41-2.73 1.72-.4 3.55-.26 5.16.42.34.14.66.3.96.48v4.13c-.23-.1-.47-.19-.71-.25-.9-.23-1.87-.2-2.73.1-.86.3-1.6.86-2.12 1.6-.52.74-.8 1.66-.78 2.6.02.93.35 1.83.92 2.54.57.7 1.34 1.19 2.2 1.38.86.19 1.79.1 2.58-.23.79-.34 1.45-.9 1.9-1.62.45-.73.68-1.6.66-2.5v-10.75h4.08c-.04-.5-.13-1-.28-1.48-.15-.49-.36-.95-.62-1.37-.26-.43-.57-.82-.93-1.17-.35-.35-.76-.66-1.19-.92-.44-.25-.9-.46-1.39-.61-.49-.15-1-.24-1.52-.28v-4.1z"/>
   </svg>
 );
 
-// 🔥 KOMPONEN IKON WHATSAPP ASLI (SVG ORIGINAL) 🔥
 const WhatsAppIcon = ({ className }) => (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.446-.272.371-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
@@ -74,7 +72,6 @@ const createSlug = (title) => {
 export default function NewsDetail() {
     const params = useParams();
     const router = useRouter();
-    const { news } = useNews(); 
     
     const chatEndRef = useRef(null); 
     const commentSectionRef = useRef(null); 
@@ -92,7 +89,8 @@ export default function NewsDetail() {
     const [isSaved, setIsSaved] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    const [likesCount, setLikesCount] = useState(10); 
+    // 🔥 MURNI DARI DATABASE TANPA REKAYASA 🔥
+    const [likesCount, setLikesCount] = useState(0); 
     const [isLiked, setIsLiked] = useState(false);
     const [comments, setComments] = useState([]);
     
@@ -154,11 +152,11 @@ export default function NewsDetail() {
                     const viewedKey = `viewed_${targetId}`;
                     const hasViewed = sessionStorage.getItem(viewedKey);
                     
+                    // 🔥 LOGIC VIEWS MURNI DARI SUPABASE (TANPA PENAMBAHAN PALSU) 🔥
                     let currentViews = currentArticle.views || 0;
-                    if (currentViews < 25) { currentViews = 25 + currentViews; }
 
                     if (!hasViewed) {
-                        currentViews += 1;
+                        currentViews += 1; // Real view counter
                         sessionStorage.setItem(viewedKey, 'true'); 
                         supabase.from('news').update({ views: currentViews }).eq('id', targetId).then();
                     }
@@ -212,7 +210,8 @@ export default function NewsDetail() {
 
         const fetchInteractions = async () => {
             const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
-            if (newsData) setLikesCount(newsData.likes_count || 10);
+            // 🔥 LOGIC LIKES MURNI DARI SUPABASE 🔥
+            if (newsData) setLikesCount(newsData.likes_count || 0);
             const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
@@ -225,26 +224,6 @@ export default function NewsDetail() {
     }, [articleId]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, isAIChatOpen]);
-
-    // 🔥 FUNGSI PARSER UNTUK BOLD, ITALIC, & QUOTE 🔥
-    const renderContent = (text) => {
-        if (!text) return null;
-        return text.split('\n').map((paragraph, index) => {
-          if (!paragraph.trim()) return <div key={index} className="h-4"></div>;
-          
-          let html = paragraph
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
-            .replace(/_(.*?)_/g, '<i>$1</i>');                
-            
-          if (html.startsWith('&gt;') || html.startsWith('>')) {
-            return (
-              <blockquote key={index} className={`border-l-4 border-blue-500 pl-4 py-2 my-6 italic font-medium ${isDarkMode ? 'bg-slate-800/50 text-slate-300' : 'bg-blue-50/50 text-slate-700'}`} dangerouslySetInnerHTML={{ __html: html.replace(/^&gt;|^>\s*/, '') }} />
-            );
-          }
-    
-          return <p key={index} className={`mb-4 md:mb-6 leading-relaxed text-justify ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: html }} />;
-        });
-      };
 
     const showToast = (message) => {
         setToast({ show: true, message });
@@ -381,59 +360,45 @@ export default function NewsDetail() {
                 )}
             </AnimatePresence>
 
-            {/* 🔥 NAVBAR (PERSIS SEPERTI HALAMAN HOME TERBARU) 🔥 */}
             <header className="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300">
                 <div className={`absolute inset-0 backdrop-blur-md border-b shadow-sm ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/60'}`}></div>
                 <div className="relative z-10 max-w-7xl mx-auto px-3">
                 
-                {/* Baris Atas */}
-                <div className="h-14 md:h-16 flex items-center justify-between relative">
-                    
+                <div className="h-12 md:h-16 flex items-center justify-between relative">
                     <div className="flex-1 flex justify-start">
-                        {/* Tombol Back untuk Halaman Berita */}
-                        <button onClick={() => router.back()} className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>
-                            <ArrowLeft className="w-6 h-6 md:w-7 md:h-7"/>
+                        <button onClick={() => router.back()} className={`p-1.5 md:p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6"/>
                         </button>
                     </div>
                     
                     <div className="flex shrink-0 justify-center">
-                    <Link href="/" className="flex items-center gap-1.5 md:gap-2 group cursor-pointer">
-                        <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1.5 md:p-2 rounded-lg text-white group-hover:rotate-12 transition-transform shadow-md">
-                        <Zap className="w-4 h-4 md:w-5 md:h-5 fill-white" />
-                        </div>
-                        <span className={`text-xl md:text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                        SULTRA<span className="text-blue-600">FIKS</span>
-                        </span>
-                    </Link>
+                        <Link href="/" className="flex items-center gap-1.5 md:gap-2 group cursor-pointer">
+                            <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1 md:p-1.5 rounded-lg text-white group-hover:rotate-12 transition-transform shadow-md">
+                                <Zap className="w-3.5 h-3.5 md:w-5 md:h-5 fill-white" />
+                            </div>
+                            <span className={`text-base md:text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                SULTRA<span className="text-blue-600">FIKS</span>
+                            </span>
+                        </Link>
                     </div>
                     
-                    <div className="flex-1 flex justify-end items-center gap-2 md:gap-4">
-                        <div className={`hidden md:flex items-center gap-0.5 md:gap-1 rounded-full p-1 border shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                            <button onClick={() => setFontSize(f => Math.max(12, f - 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Minus className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
+                    <div className="flex-1 flex justify-end items-center gap-1.5 md:gap-4">
+                        <div className={`flex items-center gap-0.5 md:gap-1 rounded-full p-0.5 md:p-1 border shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                            <button onClick={() => setFontSize(f => Math.max(12, f - 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Minus className="w-3 h-3 md:w-4 md:h-4"/></button>
                             <span className={`text-[9px] md:text-[11px] font-black px-0.5 md:px-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Aa</span>
-                            <button onClick={() => setFontSize(f => Math.min(28, f + 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Plus className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
+                            <button onClick={() => setFontSize(f => Math.min(28, f + 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Plus className="w-3 h-3 md:w-4 md:h-4"/></button>
                         </div>
-                        <button onClick={toggleDarkMode} className={`w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full transition-all border shadow-sm ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
-                            {isDarkMode ? <Sun className="w-4 h-4 md:w-5 md:h-5 fill-current" /> : <Moon className="w-4 h-4 md:w-5 md:h-5 fill-current" />}
+                        <button onClick={toggleDarkMode} className={`w-7 h-7 md:w-10 md:h-10 flex items-center justify-center rounded-full transition-all border shadow-sm shrink-0 ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                            {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-5 md:h-5 fill-current" /> : <Moon className="w-3.5 h-3.5 md:w-5 md:h-5 fill-current" />}
                         </button>
                     </div>
                 </div>
 
-                {/* Pengatur Font Khusus Mobile ditaruh di baris kedua untuk kerapian */}
-                <div className="md:hidden pb-3 px-1 mt-1 flex justify-center">
-                    <div className={`flex items-center justify-center w-full gap-2 rounded-xl p-2 border shadow-sm ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                        <button onClick={() => setFontSize(f => Math.max(12, f - 2))} className={`p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Minus className="w-4 h-4"/></button>
-                        <span className={`text-xs font-black px-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Ukuran Teks Berita</span>
-                        <button onClick={() => setFontSize(f => Math.min(28, f + 2))} className={`p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Plus className="w-4 h-4"/></button>
-                    </div>
-                </div>
-
-                {/* Kategori Berita dengan Icon */}
-                <div className="flex items-center justify-between pb-3 pt-1 px-1">
-                    <div className="overflow-x-auto no-scrollbar flex gap-3 md:gap-5 items-center w-full md:w-auto">
+                <div className="flex items-center justify-between pb-2 md:pb-3 pt-1 px-1">
+                    <div className="overflow-x-auto no-scrollbar flex gap-3 md:gap-5 items-center w-full">
                         <Link href="/" className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
-                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600'}`}>
-                            <HomeIcon className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform`} />
+                            <div className={`w-9 h-9 md:w-12 md:h-12 rounded-[10px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600'}`}>
+                                <HomeIcon className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform`} />
                             </div>
                             <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800'}`}>Home</span>
                         </Link>
@@ -443,7 +408,7 @@ export default function NewsDetail() {
                         const isActive = article?.category === cat; 
                         return (
                             <Link key={cat} href={`/?cat=${cat}`} className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
-                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
+                            <div className={`w-9 h-9 md:w-12 md:h-12 rounded-[10px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
                                 <IconComponent className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
                             </div>
                             <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
@@ -455,22 +420,19 @@ export default function NewsDetail() {
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-4 pt-[180px] md:pt-[150px] pb-10">
+            <main className="max-w-6xl mx-auto px-4 pt-[130px] md:pt-[150px] pb-10">
                 
-                {/* 🔥 SLOT IKLAN HEADER 🔥 */}
                 <div className="w-full h-16 md:h-[120px] mb-6 md:mb-10 relative bg-transparent">
                     <AdBanner position="header" />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
                     <div className="lg:col-span-8">
-                        {/* KATEGORI & JUDUL */}
                         <div className={`flex items-center gap-2 text-[10px] md:text-xs font-bold text-blue-600 mb-3 md:mb-4 uppercase tracking-wider`}>
                             <span className={`px-2 py-1 rounded ${isDarkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-50'}`}>News</span> / <span>{article?.category || 'Utama'}</span>
                         </div>
                         <h1 className={`text-xl md:text-3xl lg:text-4xl font-black leading-tight md:leading-snug mb-4 md:mb-5 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{article?.title}</h1>
                         
-                        {/* INFO MEDIA & WAKTU */}
                         <div className={`flex items-center justify-between border-b pb-3 md:pb-4 mb-4 md:mb-6 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <div className="flex items-center gap-3 md:gap-4">
                                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
@@ -489,7 +451,7 @@ export default function NewsDetail() {
                                         {timeAgo(article?.created_at)}
                                         <span className="mx-0.5 md:mx-1">•</span>
                                         <Eye className="w-3 h-3 text-blue-500"/>
-                                        <span>{article?.views || 25} Dilihat</span>
+                                        <span>{article?.views || 0} Dilihat</span>
                                         
                                         <span className="mx-0.5 md:mx-1 inline">•</span>
                                         <BookOpen className="w-3 h-3 text-blue-500 inline"/>
@@ -509,8 +471,7 @@ export default function NewsDetail() {
                             </div>
                         </div>
 
-                        {/* 🔥 FOTO ORIGINAL RESOLUSI (TIDAK DIPOTONG / TIDAK DIBLUR) 🔥 */}
-                        <div className="mb-4 md:mb-6 w-full flex flex-col items-center group relative">
+                        <div className="mb-4 w-full flex flex-col items-center group relative">
                             {article?.image_url ? (
                                 <div className="relative w-full flex justify-center bg-transparent">
                                     <img 
@@ -519,7 +480,7 @@ export default function NewsDetail() {
                                         alt={article?.title} 
                                     />
                                     {(!article?.photo_source || article.photo_source.trim() === '') && (
-                                        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1.5 pointer-events-none opacity-90 drop-shadow-2xl z-20">
+                                        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1.5 pointer-events-none opacity-60 drop-shadow-2xl z-20">
                                             <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1 md:p-1.5 rounded-md text-white shadow-lg shrink-0">
                                                 <Zap className="w-3 h-3 md:w-4 md:h-4 fill-white text-white" />
                                             </div>
@@ -537,8 +498,7 @@ export default function NewsDetail() {
                             )}
                         </div>
                         
-                        {/* CAPTION FOTO & SUMBER */}
-                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-8 md:mb-12 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-4 md:mb-5 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             <p className="text-left order-2 md:order-1">
                                 {article?.photo_caption || "Ilustrasi berita."}
                             </p>
@@ -549,22 +509,37 @@ export default function NewsDetail() {
                             )}
                         </div>
 
-                        {/* 🔥 SLOT IKLAN IN-ARTICLE 🔥 */}
-                        <div className="w-full h-[100px] md:h-[120px] mb-8 relative bg-transparent flex items-center justify-center">
+                        <div className="w-full h-[100px] md:h-[120px] mb-3 md:mb-4 relative bg-transparent flex items-center justify-center">
                             <AdBanner position="in_article" />
                         </div>
 
-                        {/* 🔥 ISI BERITA (DENGAN PARSER FORMAT TEKS) 🔥 */}
-                        <article className="article-content" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
-                            <p className={`mb-4 md:mb-6 leading-relaxed text-justify ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
-                                <strong className="uppercase">KENDARI — </strong> 
-                                <span dangerouslySetInnerHTML={{ __html: article?.content?.split('\n')[0].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<i>$1</i>') }} />
-                            </p>
-                            
-                            {renderContent(article?.content?.substring(article.content.indexOf('\n') + 1))}
+                        <article className={`prose max-w-none mb-8 md:mb-10 transition-colors ${isDarkMode ? 'prose-invert text-slate-300' : 'text-slate-800'}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.7' }}>
+                            {article?.content?.split('\n').map((p, i) => {
+                                if (!p.trim()) return null; 
+                                
+                                let html = p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<i>$1</i>');
+
+                                const trimmed = p.trim();
+                                const isQuote = trimmed.startsWith('>') || trimmed.startsWith('"') || trimmed.startsWith('“') || trimmed.startsWith('‘') || trimmed.startsWith('”');
+
+                                if (isQuote) {
+                                    let cleanHtml = html.replace(/^[>\"“‘”]\s*/, '').replace(/[\"”’]\s*$/, '');
+                                    
+                                    return (
+                                        <div key={i} className={`my-4 md:my-6 pl-4 md:pl-5 border-l-[3px] border-blue-600 relative py-3 rounded-r-xl shadow-sm ${isDarkMode ? 'bg-slate-800/50' : 'bg-blue-50/50'}`}>
+                                            <p className={`italic font-medium leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                                                <span className="text-blue-600 mr-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>“</span>
+                                                <span dangerouslySetInnerHTML={{ __html: cleanHtml }} />
+                                                <span className="text-blue-600 ml-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>”</span>
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                
+                                return <p key={i} className="mb-3 md:mb-4 leading-relaxed text-justify" dangerouslySetInnerHTML={{ __html: html }} />;
+                            })}
                         </article>
 
-                        {/* PROFIL WARTAWAN */}
                         <div className={`mt-8 mb-8 pt-6 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <button 
                                 onClick={() => setShowRedaksi(!showRedaksi)}
@@ -626,10 +601,8 @@ export default function NewsDetail() {
                             </AnimatePresence>
                         </div>
 
-                        {/* BAGIAN BAWAH (TAGS & ENGAGEMENT) */}
                         <div className={`pt-6 md:pt-8 border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             
-                            {/* TAGS */}
                             <div className="flex flex-wrap gap-2 mb-6 md:mb-8">
                                 {smartTags.map((tag) => (
                                     <button 
@@ -642,7 +615,6 @@ export default function NewsDetail() {
                                 ))}
                             </div>
 
-                            {/* TOMBOL LIKE & SHARE DESKTOP */}
                             <div className={`hidden md:flex flex-col sm:flex-row justify-between items-center gap-5 py-5 md:py-6 border-y mb-8 md:mb-10 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                                 <div className="flex items-center gap-6">
                                     <motion.button whileTap={{ scale: 0.8 }} onClick={handleLikeClick} className="flex items-center gap-2 group cursor-pointer">
@@ -662,7 +634,6 @@ export default function NewsDetail() {
                                 </div>
                             </div>
 
-                            {/* --- SEKSI KOMENTAR --- */}
                             <div ref={commentSectionRef} className={`rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8 border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                                 <h3 className={`text-lg md:text-xl font-black mb-5 md:mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                     <MessageCircle className="text-blue-500 w-5 h-5 md:w-6 md:h-6"/> Diskusi Pembaca <span className="text-slate-500 text-xs md:text-sm font-bold">({comments.length})</span>
@@ -723,16 +694,13 @@ export default function NewsDetail() {
                         </div>
                     </div>
 
-                    {/* 🔥 SIDEBAR KANAN (DIJADIKAN STICKY DALAM 1 WRAPPER) 🔥 */}
                     <div className="lg:col-span-4">
                         <div className="lg:sticky lg:top-32 flex flex-col gap-6 md:gap-8 h-fit pb-10">
                             
-                            {/* 🔥 SLOT IKLAN SIDEBAR 🔥 */}
                             <div className="w-full aspect-[4/3] max-h-[300px] relative bg-transparent z-10">
                                 <AdBanner position="sidebar" />
                             </div>
 
-                            {/* 🔥 BERITA TERKAIT 🔥 */}
                             <div className={`p-5 md:p-6 rounded-2xl md:rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
                                 <h3 className={`font-black text-base md:text-lg mb-4 md:mb-5 flex items-center gap-2 uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                     <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-red-500"/> Terkait <span className="text-blue-500 text-[10px] md:text-sm">({article?.category})</span>
@@ -771,7 +739,6 @@ export default function NewsDetail() {
                 </div>
             </main>
 
-            {/* 🔥 FOOTER BARU (SAMA SEPERTI HOME) 🔥 */}
             <footer className="bg-[#0f172a] text-white pt-10 md:pt-16 pb-6 px-4 mt-6">
                 <div className="max-w-5xl mx-auto text-center md:text-left">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-8 md:mb-12">
@@ -820,7 +787,6 @@ export default function NewsDetail() {
                 </div>
             </footer>
 
-            {/* 🔥 BOTTOM NAVIGATION KHUSUS MOBILE 🔥 */}
             <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[90] backdrop-blur-xl border-t px-6 py-3 pb-6 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800' : 'bg-white/90 border-slate-100'}`}>
                 <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleLikeClick}>
                     <Heart className={`w-5 h-5 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-slate-400 group-hover:text-red-500'}`} />
@@ -831,25 +797,21 @@ export default function NewsDetail() {
                     <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-500">{comments.length}</span>
                 </div>
                 
-                {/* TOMBOL AI DI TENGAH */}
                 <button onClick={() => setIsAIChatOpen(true)} className={`w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg -mt-10 border-4 active:scale-95 transition-transform ${isDarkMode ? 'border-[#0B0F19]' : 'border-white'}`}>
                     <Bot className="w-6 h-6" />
                 </button>
                 
-                {/* TOMBOL BOOKMARK */}
                 <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleBookmark}>
                     <Bookmark className={`w-5 h-5 transition-colors ${isSaved ? 'fill-yellow-500 text-yellow-500' : 'text-slate-400 group-hover:text-blue-500'}`} />
                     <span className={`text-[10px] font-bold transition-colors ${isSaved ? 'text-yellow-500' : 'text-slate-500 group-hover:text-blue-500'}`}>Simpan</span>
                 </div>
 
-                {/* TOMBOL MUNCULKAN POP-UP SHARE */}
                 <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => setIsShareModalOpen(true)}>
                     <Share2 className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                     <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-500 transition-colors">Share</span>
                 </div>
             </div>
 
-            {/* 🔥 MODAL POP-UP SHARE KHUSUS MOBILE (BOTTOM SHEET) 🔥 */}
             <AnimatePresence>
                 {isShareModalOpen && (
                     <>

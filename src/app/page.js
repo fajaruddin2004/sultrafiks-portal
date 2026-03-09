@@ -87,6 +87,9 @@ function HomeContent() {
   
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false); 
+
+  // 🔥 STATE BARU UNTUK MEMBUKA MODAL PENCARIAN (MOBILE & DESKTOP) 🔥
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   
   const [showPopupAd, setShowPopupAd] = useState(false);
   const [showStickyAd, setShowStickyAd] = useState(true);
@@ -312,6 +315,7 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
+      {/* MODAL MENU HAMBURGER (KIRI) */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -346,69 +350,74 @@ function HomeContent() {
         <div className={`absolute inset-0 backdrop-blur-md border-b shadow-sm ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/60'}`}></div>
         <div className="relative z-10 max-w-7xl mx-auto px-3">
           
-          <div className="h-14 md:h-16 flex items-center justify-between relative">
+          <div className="h-12 md:h-16 flex items-center justify-between relative">
             <div className="flex-1 flex justify-start md:hidden">
-              <button onClick={() => setIsMobileMenuOpen(true)} className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>
-                <Menu className="w-6 h-6"/>
+              <button onClick={() => setIsMobileMenuOpen(true)} className={`p-1.5 rounded-lg active:scale-95 transition-all ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>
+                <Menu className="w-5 h-5"/>
               </button>
             </div>
             <div className="flex-1 hidden md:flex justify-start"></div>
             
             <div className="flex shrink-0 justify-center">
-              <button onClick={() => handleCategoryClick("Home")} className="flex items-center gap-1.5 md:gap-2 group cursor-pointer">
-                <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1.5 md:p-2 rounded-lg text-white group-hover:rotate-12 transition-transform shadow-md">
-                  <Zap className="w-4 h-4 md:w-5 md:h-5 fill-white" />
+              <button onClick={() => handleCategoryClick("Home")} className="flex items-center gap-1.5 md:gap-2 group cursor-pointer active:scale-95 transition-transform">
+                <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1 md:p-1.5 rounded-md md:rounded-lg text-white group-hover:rotate-12 transition-transform shadow-md">
+                  <Zap className="w-3.5 h-3.5 md:w-5 md:h-5 fill-white" />
                 </div>
-                <span className={`text-xl md:text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                <span className={`text-lg md:text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                   SULTRA<span className="text-blue-600">FIKS</span>
                 </span>
               </button>
             </div>
             
-            <div className="flex-1 flex justify-end items-center">
-              <button onClick={toggleDarkMode} className={`md:hidden w-9 h-9 flex items-center justify-center rounded-full transition-all border shadow-sm ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
-                {isDarkMode ? <Sun className="w-4 h-4 fill-current" /> : <Moon className="w-4 h-4 fill-current" />}
+            <div className="flex-1 flex justify-end items-center gap-1.5">
+              
+              {/* 🔥 TOMBOL SEARCH MOBILE (MENGGANTIKAN TITIK TIGA) 🔥 */}
+              <button 
+                  onClick={() => setIsSearchModalOpen(true)} 
+                  className={`md:hidden w-7 h-7 flex items-center justify-center rounded-full transition-all border shadow-sm active:scale-95 ${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'}`}
+              >
+                  <Search className="w-3.5 h-3.5" />
+              </button>
+
+              <button onClick={toggleDarkMode} className={`md:hidden w-7 h-7 flex items-center justify-center rounded-full transition-all border shadow-sm active:scale-95 ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                {isDarkMode ? <Sun className="w-3.5 h-3.5 fill-current" /> : <Moon className="w-3.5 h-3.5 fill-current" />}
               </button>
             </div>
           </div>
 
-          <div className="md:hidden pb-3 px-1 mt-1">
-            <div className={`rounded-xl px-4 py-2.5 flex items-center border shadow-sm ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-200'}`}>
-              <Search className={`w-4 h-4 mr-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}/>
-              <input className={`bg-transparent border-none outline-none text-sm w-full font-medium ${isDarkMode ? 'text-slate-200 placeholder:text-slate-500' : 'text-slate-700 placeholder:text-slate-400'}`} placeholder="Cari topik berita..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}/>
-              {searchQuery && <button onClick={() => setSearchQuery("")}><X className="w-4 h-4 text-red-500" /></button>}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pb-3 pt-1 px-1 w-full">
+          <div className="flex items-center justify-between pb-2 md:pb-3 pt-1 px-1 w-full">
             
-            {/* 🔥 Kategori Scroll dengan Gap Diperkecil & flex-1 agar berhenti pas sebelum Search Bar 🔥 */}
             <div className="flex-1 overflow-x-auto no-scrollbar flex gap-2 md:gap-4 items-center pr-4">
               {categories.map((cat) => {
                 const config = categoryConfig[cat];
                 const IconComponent = config.icon;
                 const isActive = activeCat === cat && !searchQuery && activeCat !== "Indeks"; 
                 return (
-                  <button key={cat} onClick={() => handleCategoryClick(cat)} className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
-                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
+                  <button key={cat} onClick={() => handleCategoryClick(cat)} className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2 active:scale-95 transition-transform">
+                    <div className={`w-9 h-9 md:w-12 md:h-12 rounded-[10px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
                       <IconComponent className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
                     </div>
-                    <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
+                    <span className={`text-[9px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
                   </button>
                 )
               })}
             </div>
 
-            {/* 🔥 Search Bar Diperkecil Sedikit Agar Semua Ikon Kategori Muat 🔥 */}
+            {/* KANAN DESKTOP: TOMBOL SEARCH & DARK MODE */}
             <div className="hidden md:flex items-center gap-3 shrink-0 pl-3 border-l-2 border-slate-200 dark:border-slate-800">
-              <div className={`flex w-[200px] lg:w-[250px] rounded-full px-4 py-2 items-center border focus-within:border-blue-400 transition-colors ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-100/50 border-slate-200'}`}>
-                <Search className={`w-4 h-4 mr-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}/>
-                <input className={`bg-transparent border-none outline-none text-sm w-full font-medium ${isDarkMode ? 'text-slate-200 placeholder:text-slate-500' : 'text-slate-700 placeholder:text-slate-400'}`} placeholder="Cari berita..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}/>
-                {searchQuery && (<button onClick={() => setSearchQuery("")} className="text-red-500"><X className="w-4 h-4" /></button>)}
-              </div>
+              
+              <button 
+                  onClick={() => setIsSearchModalOpen(true)} 
+                  className={`w-10 h-10 flex items-center justify-center rounded-full transition-all border shadow-sm ${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
+                  title="Cari Berita"
+              >
+                  <Search className="w-5 h-5" />
+              </button>
+
               <button onClick={toggleDarkMode} className={`w-10 h-10 flex items-center justify-center rounded-full transition-all border shadow-sm ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
                 {isDarkMode ? <Sun className="w-5 h-5 fill-current" /> : <Moon className="w-5 h-5 fill-current" />}
               </button>
+
             </div>
 
           </div>
@@ -416,7 +425,36 @@ function HomeContent() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 md:px-4 pt-[180px] md:pt-[150px] pb-5 md:pb-8">
+      {/* 🔥 MODAL PENCARIAN ELEGAN (UNTUK MOBILE DAN DESKTOP) 🔥 */}
+      <AnimatePresence>
+          {isSearchModalOpen && (
+              <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="fixed top-16 md:top-24 left-1/2 -translate-x-1/2 w-full max-w-xl z-[100] px-4"
+              >
+                  <div className={`flex w-full rounded-full px-5 py-3 md:px-6 md:py-4 items-center shadow-2xl border-2 focus-within:border-blue-500 transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                      <Search className={`w-5 h-5 md:w-6 md:h-6 mr-3 shrink-0 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`}/>
+                      <input 
+                          autoFocus
+                          className={`bg-transparent border-none outline-none text-sm md:text-lg w-full font-bold ${isDarkMode ? 'text-slate-200 placeholder:text-slate-500' : 'text-slate-700 placeholder:text-slate-400'}`} 
+                          placeholder="Ketik topik berita..." 
+                          value={searchQuery} 
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') setIsSearchModalOpen(false); }}
+                      />
+                      <button onClick={() => { setSearchQuery(""); setIsSearchModalOpen(false); }} className="text-red-500 p-1 md:p-2 hover:bg-red-50 rounded-full transition-colors shrink-0">
+                          <X className="w-5 h-5 md:w-6 md:h-6" />
+                      </button>
+                  </div>
+                  {/* Backdrop Click to Close */}
+                  <div className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm" onClick={() => setIsSearchModalOpen(false)}></div>
+              </motion.div>
+          )}
+      </AnimatePresence>
+
+      <main className="max-w-7xl mx-auto px-3 md:px-4 pt-[110px] md:pt-[150px] pb-5 md:pb-8">
 
         {allNewsSorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -619,6 +657,78 @@ function HomeContent() {
         </div>
       </footer>
       
+      {/* MODAL TENTANG KAMI & CONTACT ADMIN */}
+      <AnimatePresence>
+        {isAboutOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+            >
+              <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-6 flex flex-col items-center justify-center relative">
+                <button onClick={() => setIsAboutOpen(false)} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors active:scale-95"><X className="w-4 h-4" /></button>
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-3 rotate-3"><Zap className="w-8 h-8 text-blue-600 fill-blue-600" /></div>
+                <h2 className="text-2xl font-black italic text-white tracking-tighter">SULTRAFIKS</h2>
+                <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Official Media Partner</p>
+              </div>
+              <div className="p-6 text-center">
+                <p className={`text-sm leading-relaxed mb-6 font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Media siber terdepan di Sulawesi Tenggara yang menyajikan informasi cepat, akurat, dan terpercaya. Kami berkomitmen untuk menjadi mata dan telinga bagi masyarakat.
+                </p>
+                <div className={`flex items-center justify-center gap-2 text-xs font-bold py-3 rounded-xl border ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                  <BadgeCheck className="w-5 h-5 text-blue-500" /> Dikelola Oleh CV.AVA AMAZONE.IND
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isContactOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className={`w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}
+            >
+              <div className="bg-gradient-to-tr from-amber-500 to-orange-600 p-6 flex flex-col items-center justify-center relative">
+                <button onClick={() => setIsContactOpen(false)} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors active:scale-95"><X className="w-4 h-4" /></button>
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-3"><Megaphone className="w-8 h-8 text-amber-500" /></div>
+                <h2 className="text-2xl font-black italic text-white tracking-tighter">CONTACT ADMIN</h2>
+                <p className="text-amber-100 text-[10px] font-bold uppercase tracking-widest mt-1">Informasi Pemasangan Iklan</p>
+              </div>
+              <div className="p-6 text-center">
+                <p className={`text-sm leading-relaxed mb-6 font-medium ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Tingkatkan jangkauan bisnis Anda dengan beriklan di portal berita SultraFiks. Berikut adalah Price List ruang iklan kami:
+                </p>
+
+                <div className={`text-left rounded-xl p-4 mb-6 border ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                    <ul className="space-y-3">
+                        <li className="flex justify-between items-center border-b pb-2 border-slate-200/50 dark:border-slate-700">
+                            <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Banner Header (Atas)</span>
+                            <span className="text-xs font-black text-amber-500">{siteConfig?.header_price || 'Rp 500k'} <span className="text-[9px] text-slate-400 font-normal">/Bulan</span></span>
+                        </li>
+                        <li className="flex justify-between items-center border-b pb-2 border-slate-200/50 dark:border-slate-700">
+                            <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>Banner Sidebar (Samping)</span>
+                            <span className="text-xs font-black text-amber-500">{siteConfig?.sidebar_price || 'Rp 350k'} <span className="text-[9px] text-slate-400 font-normal">/Bulan</span></span>
+                        </li>
+                        <li className="flex justify-between items-center">
+                            <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>In-Article (Dalam Berita)</span>
+                            <span className="text-xs font-black text-amber-500">{siteConfig?.article_price || 'Rp 250k'} <span className="text-[9px] text-slate-400 font-normal">/Bulan</span></span>
+                        </li>
+                    </ul>
+                </div>
+
+                <button 
+                  onClick={() => window.open(`https://wa.me/${siteConfig?.wa_number || '6285242842268'}?text=Halo%20Admin%20SultraFiks,%20saya%20tertarik%20untuk%20memasang%20iklan.%20Boleh%20minta%20informasi%20lebih%20lanjut?`, '_blank')}
+                  className="w-full py-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-green-500/30 flex items-center justify-center gap-2 active:scale-95"
+                >
+                  <Phone className="w-4 h-4"/> Hubungi Admin via WA
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showStickyAd && adStatus.sticky && (
           <motion.div
