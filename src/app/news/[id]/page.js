@@ -15,7 +15,6 @@ import Link from 'next/link';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
 import AdBanner from "@/components/AdBanner"; 
 
-// 🔥 KONFIGURASI KATEGORI 🔥
 const categoryConfig = {
     "Kilas Daerah": { icon: Map,            color: "from-emerald-500 to-green-500" },
     "Birokrasi":    { icon: Building2,      color: "from-blue-500 to-cyan-500" },
@@ -26,7 +25,7 @@ const categoryConfig = {
     "Edukes":       { icon: GraduationCap,  color: "from-sky-400 to-blue-400" },
     "Nusantara":    { icon: Globe,          color: "from-teal-500 to-emerald-500" },
     "Ruang Publik": { icon: Users,          color: "from-violet-600 to-purple-600" }
-  };
+};
 const categories = Object.keys(categoryConfig);
 
 const TikTokIcon = ({ className }) => (
@@ -136,7 +135,7 @@ export default function NewsDetail() {
         const slugParam = decodeURIComponent(String(params.id || params.slug));
 
         const fetchArticleData = async () => {
-            const { data: allNews, error } = await supabase.from('news').select('*');
+            const { data: allNews } = await supabase.from('news').select('*');
 
             if (allNews && allNews.length > 0) {
                 const currentArticle = allNews.find(item => {
@@ -152,11 +151,11 @@ export default function NewsDetail() {
                     const viewedKey = `viewed_${targetId}`;
                     const hasViewed = sessionStorage.getItem(viewedKey);
                     
-                    // 🔥 LOGIC VIEWS MURNI DARI SUPABASE (TANPA PENAMBAHAN PALSU) 🔥
+                    // 🔥 LOGIC VIEWS MURNI DARI SUPABASE 🔥
                     let currentViews = currentArticle.views || 0;
 
                     if (!hasViewed) {
-                        currentViews += 1; // Real view counter
+                        currentViews += 1; 
                         sessionStorage.setItem(viewedKey, 'true'); 
                         supabase.from('news').update({ views: currentViews }).eq('id', targetId).then();
                     }
@@ -212,6 +211,7 @@ export default function NewsDetail() {
             const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
             // 🔥 LOGIC LIKES MURNI DARI SUPABASE 🔥
             if (newsData) setLikesCount(newsData.likes_count || 0);
+            
             const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
