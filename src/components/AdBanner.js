@@ -17,57 +17,37 @@ export default function AdBanner({ position, className = "" }) {
           .eq("is_active", true)          
           .eq("position", position)       
           .order("created_at", { ascending: false }) 
-          .limit(1); // 🔥 .single() KITA HAPUS DI SINI BIAR TIDAK ERROR 406 🔥
+          .limit(1); 
 
         if (error) throw error;
-
-        // Cek apakah datanya ada (panjang array lebih dari 0)
-        if (data && data.length > 0) {
-          setAd(data[0]); // Ambil data urutan pertama
-        } else {
-          setAd(null); // Kosongkan jika tidak ada iklan
-        }
+        if (data && data.length > 0) setAd(data[0]); 
+        else setAd(null); 
       } catch (error) {
-        // Cukup tampilkan peringatan halus kuning, bukan error merah
-        console.warn(`Info: Ruang iklan untuk posisi '${position}' masih kosong.`);
+        console.warn(`Info: Ruang iklan '${position}' kosong.`);
       } finally {
         setLoading(false);
       }
     };
-
     fetchAd();
   }, [position]);
 
-  if (loading) {
-    return (
-      <div className={`w-full h-full bg-slate-100 animate-pulse rounded-xl flex items-center justify-center border border-slate-200 ${className}`}>
-        <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase">Memuat Iklan...</span>
-      </div>
-    );
-  }
+  // Kalau loading atau kosong, hilangkan saja kotaknya biar bersih!
+  if (loading) return null; 
+  if (!ad) return null; 
 
-  if (!ad) {
-    // Jika tidak ada iklan aktif di posisi ini, tampilkan kotak default
-    return (
-      <div className={`w-full h-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 ${className}`}>
-        <span className="text-xs font-black uppercase tracking-widest">Ruang Iklan Tersedia</span>
-        <span className="text-[9px] font-bold mt-1">Posisi: {position}</span>
-      </div>
-    );
-  }
-
-  // Jika iklan ada, tampilkan gambarnya!
   return (
-    <div className={`relative w-full h-full rounded-xl overflow-hidden group shadow-sm hover:shadow-md transition-shadow bg-white ${className}`}>
+    // 🔥 RAHASIANYA DI SINI: bg-transparent agar tembus pandang, tidak ada lagi ruang putih! 🔥
+    <div className={`relative w-full h-full flex items-center justify-center bg-transparent ${className}`}>
       {ad.link_url ? (
-        <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative">
-          <Image src={ad.image_url} fill className="object-cover" alt={ad.title} unoptimized />
-          <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">Ad</div>
+        <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative flex items-center justify-center">
+          {/* object-contain memastikan tidak terpotong & unoptimized menjaga resolusi tinggi di HP */}
+          <Image src={ad.image_url} fill className="object-contain" alt={ad.title} unoptimized />
+          <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-widest z-10">Ad</div>
         </a>
       ) : (
-        <div className="w-full h-full relative">
-          <Image src={ad.image_url} fill className="object-cover" alt={ad.title} unoptimized />
-          <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">Ad</div>
+        <div className="w-full h-full relative flex items-center justify-center">
+          <Image src={ad.image_url} fill className="object-contain" alt={ad.title} unoptimized />
+          <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-widest z-10">Ad</div>
         </div>
       )}
     </div>

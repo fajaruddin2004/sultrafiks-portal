@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { 
   BarChart3, Users, Megaphone, TrendingUp, Eye, FileText, 
   Trash2, UploadCloud, Plus, LogOut, Settings, Save, Phone, User,
-  MessageSquare, ThumbsUp, Calendar, Newspaper, X, Trophy // 🔥 Trophy ditambahkan 🔥
+  MessageSquare, ThumbsUp, Calendar, Newspaper, X, Trophy 
 } from "lucide-react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -65,8 +65,6 @@ export default function SuperAdminPage() {
       let tViews = 0;
       let tNews = 0;
       const categoryStats = {};
-      
-      // 🔥 1. SIAPKAN KERANJANG PENGHITUNG BERITA PER WARTAWAN 🔥
       const authorArticleCounts = {}; 
 
       newsData?.forEach(n => {
@@ -74,13 +72,11 @@ export default function SuperAdminPage() {
             tNews++;
             tViews += (n.views || 0);
             
-            // Hitung untuk grafik kategori
             const cat = n.category || 'Lainnya';
             if(!categoryStats[cat]) categoryStats[cat] = { name: cat, views: 0, artikel: 0 };
             categoryStats[cat].views += (n.views || 0);
             categoryStats[cat].artikel += 1;
 
-            // 🔥 2. HITUNG BERAPA BERITA YANG DIBUAT OLEH AUTHOR INI 🔥
             if(n.author_id) {
                 authorArticleCounts[n.author_id] = (authorArticleCounts[n.author_id] || 0) + 1;
             }
@@ -91,13 +87,9 @@ export default function SuperAdminPage() {
 
       const { data: staffData, count: tStaff } = await supabase.from('profiles').select('*', { count: 'exact' });
       
-      // 🔥 3. GABUNGKAN JUMLAH BERITA KE DATA STAF DAN URUTKAN DARI YANG TERBANYAK 🔥
       const staffWithCounts = (staffData || []).map(staff => {
-          return {
-              ...staff,
-              article_count: authorArticleCounts[staff.id] || 0 // Jika 0 berita, set 0
-          }
-      }).sort((a, b) => b.article_count - a.article_count); // Diurutkan dari terbanyak ke terdikit
+          return { ...staff, article_count: authorArticleCounts[staff.id] || 0 }
+      }).sort((a, b) => b.article_count - a.article_count); 
 
       setStaffList(staffWithCounts);
 
@@ -443,7 +435,12 @@ export default function SuperAdminPage() {
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Posisi Tayang</label>
                     <select value={adForm.position} onChange={(e)=>setAdForm({...adForm, position: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-500">
-                      <option value="header">Header (Atas)</option><option value="sidebar">Sidebar (Samping)</option><option value="in_article">Dalam Artikel</option>
+                      <option value="header">Header (Atas)</option>
+                      <option value="sidebar">Sidebar (Samping)</option>
+                      <option value="in_article">Dalam Artikel</option>
+                      {/* 🔥 2 OPSI IKLAN BARU SUDAH DITAMBAHKAN DI SINI BOS 🔥 */}
+                      <option value="popup">Pop-up (Tengah Layar)</option>
+                      <option value="sticky_bottom">Sticky (Nempel Bawah)</option>
                     </select>
                   </div>
                   <div>
@@ -496,7 +493,6 @@ export default function SuperAdminPage() {
                   <thead>
                     <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                       <th className="p-4">Nama / KTP Pers</th>
-                      {/* 🔥 HEADER BARU UNTUK TOTAL BERITA 🔥 */}
                       <th className="p-4 text-center">Total Berita</th>
                       <th className="p-4">Jabatan</th>
                       <th className="p-4">No. HP</th>
@@ -513,20 +509,16 @@ export default function SuperAdminPage() {
                           <div>
                             <div className="font-bold text-slate-800 flex items-center gap-1.5">
                                 {staff.full_name} 
-                                {/* 🔥 MAHKOTA UNTUK JUARA 1 (Yang Paling Banyak Upload Berita) 🔥 */}
                                 {index === 0 && staff.article_count > 0 && <Trophy size={14} className="text-amber-500 fill-amber-500" title="Wartawan Paling Produktif"/>}
                             </div>
                             <p className="text-[10px] text-slate-400">{staff.username}</p>
                           </div>
                         </td>
-                        
-                        {/* 🔥 MENAMPILKAN ANGKA TOTAL BERITA 🔥 */}
                         <td className="p-4 text-center">
                             <span className="inline-flex items-center justify-center font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-sm border border-blue-100">
                                 {staff.article_count}
                             </span>
                         </td>
-
                         <td className="p-4">
                           <span className={`text-[10px] px-2 py-1 rounded font-black uppercase tracking-widest ${staff.role === 'admin' ? 'bg-red-100 text-red-600' : staff.role === 'redaktur' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>{staff.role}</span>
                         </td>

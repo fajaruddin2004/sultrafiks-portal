@@ -178,14 +178,12 @@ export default function RedakturPage() {
     } catch (error) { alert("GAGAL MENARIK BERITA:\n" + error.message); } finally { setActionLoading(false); }
   };
 
-  // 🔥 Fungsi Insert Kutipan (Tanpa Tanda ">" Otomatis)
   const insertCreateQuote = () => {
     const quoteText = '\n\n"Masukkan kutipan narasumber di sini..."\n— Nama Narasumber\n\n';
     setCreateForm(prev => ({ ...prev, content: prev.content + quoteText }));
     if (createContentRef.current) createContentRef.current.focus();
   };
 
-  // 🔥 Fungsi Insert Format Bold/Miring Otomatis (Markdown)
   const handleFormatText = (format) => {
     const textarea = createContentRef.current;
     if (!textarea) return;
@@ -286,13 +284,14 @@ export default function RedakturPage() {
     }
   };
 
+  // 🔥 UPDATE PROFIL (DENGAN HARD REFRESH DAN CLEAR STORAGE) 🔥
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     if (!profileForm.full_name.trim()) return alert("Nama tidak boleh kosong!");
     setActionLoading(true);
 
     try {
-        let finalAvatarUrl = profile?.avatar_url || null; // Fallback ke foto lama jika tidak ada yg baru
+        let finalAvatarUrl = profile?.avatar_url || null; 
 
         if (profileImageFile) {
             const fileExt = profileImageFile.name.split('.').pop();
@@ -303,6 +302,7 @@ export default function RedakturPage() {
             finalAvatarUrl = urlData.publicUrl;
         }
 
+        // Tembak Database
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ full_name: profileForm.full_name, avatar_url: finalAvatarUrl })
@@ -310,8 +310,13 @@ export default function RedakturPage() {
 
         if (updateError) throw updateError;
 
-        alert("Profil berhasil diperbarui! Perubahan akan disinkronkan memuat ulang halaman.");
-        window.location.reload(); // 🔥 Reload digunakan agar AuthContext mereset data dan otomatis sinkron ke seluruh aplikasi
+        alert("✅ PROFIL BERHASIL DISIMPAN! Memuat ulang sistem...");
+        
+        // 🔥 JURUS PAMUNGKAS: Hapus cache memori browser dan hard reload 🔥
+        if (typeof window !== 'undefined') {
+            sessionStorage.clear(); // Bersihkan sesi sementara
+            window.location.href = window.location.pathname + "?updated=" + Date.now(); // Reload dengan unique query
+        }
 
     } catch (err) {
         alert("Gagal update profil: " + err.message);
@@ -377,7 +382,6 @@ export default function RedakturPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row font-sans relative overflow-x-hidden">
       
-      {/* --- MODAL EDITOR (RESPONSIF) --- */}
       {isEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <div className="bg-white w-full max-w-7xl h-[95vh] md:h-auto md:min-h-[90vh] rounded-3xl md:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden my-auto border-2 md:border-4 border-amber-200/50">
@@ -424,7 +428,6 @@ export default function RedakturPage() {
                 
                 <div className="bg-blue-50 p-4 md:p-5 rounded-2xl md:rounded-[2rem] border border-blue-100 flex items-center gap-3 md:gap-4 shadow-sm">
                   <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden bg-blue-200 border-2 border-white shadow flex items-center justify-center text-blue-500 shrink-0">
-                    {/* 🔥 Validasi Foto Editor (Mencegah ikon error saat foto tidak valid) */}
                     {editForm.author?.avatar_url && editForm.author.avatar_url.trim() !== "" ? (
                       <Image src={editForm.author.avatar_url} fill className="object-cover" alt="Wartawan" unoptimized />
                     ) : (
@@ -474,11 +477,11 @@ export default function RedakturPage() {
 
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Foto Berita (Read-Only)</label>
-                    <div className="relative w-full aspect-video rounded-xl md:rounded-2xl bg-slate-100 overflow-hidden border border-slate-200">
+                    <div className="relative w-full aspect-video rounded-xl md:rounded-2xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
                       {editForm.image_url ? (
-                        <Image src={editForm.image_url} fill className="object-cover" alt="Thumbnail" unoptimized />
+                        <img src={editForm.image_url} className="w-full h-auto max-h-[300px] object-contain" alt="Thumbnail" />
                       ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
+                        <div className="flex flex-col items-center justify-center text-slate-300 py-10">
                           <ImageIcon size={24} className="mb-1 md:mb-2 md:w-8 md:h-8" />
                           <span className="text-[10px] md:text-xs font-bold">Tanpa Foto</span>
                         </div>
@@ -549,7 +552,6 @@ export default function RedakturPage() {
         </div>
       )}
       
-      {/* --- HEADER MOBILE --- */}
       <header className="md:hidden bg-[#0F172A] text-white p-4 flex justify-between items-center shadow-md sticky top-0 z-40">
         <div className="flex items-center gap-2 uppercase italic font-black text-lg tracking-tighter">
           SULTRAFIKS<span className="text-blue-500">ADMIN</span>
@@ -559,7 +561,6 @@ export default function RedakturPage() {
         </button>
       </header>
 
-      {/* --- SIDEBAR DESKTOP (🔥 FIXED POSITION) --- */}
       <aside className="hidden md:flex w-64 bg-[#0F172A] text-white flex-col p-6 fixed top-0 left-0 h-screen shrink-0 z-40 overflow-y-auto">
         <div className="flex items-center gap-3 mb-10 uppercase italic font-black text-xl tracking-tighter">
           SULTRAFIKS<span className="text-blue-500">ADMIN</span>
@@ -593,7 +594,6 @@ export default function RedakturPage() {
         <div className="mt-auto pt-6 border-t border-white/10">
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 mb-4 border border-white/10">
             <div className="w-10 h-10 rounded-xl overflow-hidden relative bg-blue-600 flex items-center justify-center font-black uppercase text-xl shrink-0">
-              {/* 🔥 Validasi Avatar Sidebar */}
               {profile?.avatar_url && profile.avatar_url.trim() !== "" ? (
                 <Image src={profile.avatar_url} fill className="object-cover" alt="Profile" unoptimized />
               ) : (
@@ -613,7 +613,6 @@ export default function RedakturPage() {
         </div>
       </aside>
 
-      {/* --- KONTEN UTAMA --- */}
       <main className="flex-1 p-4 md:p-10 pb-24 md:pb-10 overflow-y-auto w-full md:ml-64">
         <div className="max-w-5xl mx-auto">
           
@@ -632,7 +631,6 @@ export default function RedakturPage() {
                 {activeTab === "profil" && "Kelola identitas dan foto profil Anda."}
               </p>
 
-              {/* 🔥 KOLOM PENCARIAN BERITA */}
               {activeTab === "sudah_tayang" && (
                 <div className="mt-4 md:mt-6 w-full max-w-xl">
                   <div className="flex items-center bg-white border border-slate-200 rounded-xl md:rounded-2xl px-3 md:px-4 py-2.5 md:py-3 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
@@ -737,11 +735,11 @@ export default function RedakturPage() {
 
                       <div>
                         <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">Thumbnail Berita</label>
-                        <label className={`relative block w-full rounded-xl md:rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all group ${!createPreview ? 'aspect-video' : ''}`}>
+                        <label className={`relative block w-full rounded-xl md:rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden cursor-pointer hover:border-amber-400 hover:bg-amber-50/50 transition-all group flex flex-col items-center justify-center min-h-[200px]`}>
                           {createPreview ? (
-                            <img src={createPreview} className="w-full h-auto block" alt="Preview" />
+                            <img src={createPreview} className="w-full h-auto max-h-[300px] object-contain block" alt="Preview" />
                           ) : (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-amber-500">
+                            <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-amber-500 py-10">
                               <UploadCloud size={28} className="md:w-8 md:h-8" />
                               <span className="text-[10px] md:text-xs font-bold mt-2">Pilih Foto</span>
                             </div>
@@ -793,7 +791,6 @@ export default function RedakturPage() {
             <div className="max-w-2xl mx-auto bg-white rounded-3xl md:rounded-[2rem] p-6 md:p-10 shadow-xl shadow-slate-200/50 border border-slate-100 animate-in fade-in">
                 <div className="flex flex-col items-center mb-8 md:mb-10">
                    <label className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-xl cursor-pointer group mb-4 flex items-center justify-center">
-                      {/* 🔥 Bug FIX Visual Avatar Terpotong */}
                       {profilePreview && profilePreview.trim() !== "" ? (
                         <Image src={profilePreview} fill className="object-cover" alt="Profile Avatar" unoptimized />
                       ) : (
@@ -942,7 +939,7 @@ export default function RedakturPage() {
                           <button
                             onClick={() => window.open(`/berita/${item.id}`, '_blank')}
                             disabled={actionLoading}
-                            className="w-full sm:flex-1 flex items-center justify-center gap-1.5 md:gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg md:rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-green-500/20 active:scale-95"
+                            className="w-full sm:flex-1 flex items-center justify-center gap-1.5 md:gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl md:rounded-lg text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-green-500/20 active:scale-95"
                             title="Lihat berita di halaman utama website"
                           >
                             <ExternalLink size={14} className="md:w-4 md:h-4"/> Lihat Web
@@ -959,7 +956,6 @@ export default function RedakturPage() {
         </div>
       </main>
 
-      {/* --- NAV BAWAH MOBILE --- */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around p-2 pb-safe z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button 
           onClick={() => {setActiveTab("antrean"); setSearchQuery("");}} 

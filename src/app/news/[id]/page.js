@@ -9,10 +9,32 @@ import { useParams, useRouter } from 'next/navigation';
 import { 
     ArrowLeft, Bot, Send, Minus, Plus, Bookmark, Quote, TrendingUp,
     BadgeCheck, Zap, X, Volume2, VolumeX, Heart, MessageCircle, 
-    Facebook, Twitter, Youtube, Hash, Home, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2, User, Sun, Moon, Instagram, BookOpen, ChevronDown
+    Facebook, Twitter, Youtube, Hash, Home as HomeIcon, Clock, Link as LinkIcon, Share2, ImageIcon, Eye, CheckCircle2, User, Sun, Moon, Instagram, BookOpen, ChevronDown, Menu, Map, Building2, Landmark, ShieldAlert, Trophy, Clapperboard, GraduationCap, Globe, Users, Megaphone
 } from 'lucide-react'; 
 import Link from 'next/link';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
+import AdBanner from "@/components/AdBanner"; 
+
+// 🔥 KONFIGURASI KATEGORI (DIKOPY DARI HOME UNTUK NAVBAR) 🔥
+const categoryConfig = {
+    "Kilas Daerah": { icon: Map,            color: "from-emerald-500 to-green-500" },
+    "Birokrasi":    { icon: Building2,      color: "from-blue-500 to-cyan-500" },
+    "Parlemen":     { icon: Landmark,       color: "from-slate-700 to-slate-500" },
+    "Delik":        { icon: ShieldAlert,    color: "from-red-600 to-rose-600" },
+    "Arena":        { icon: Trophy,         color: "from-amber-400 to-yellow-500" },
+    "Showbiz":      { icon: Clapperboard,   color: "from-fuchsia-600 to-pink-600" },
+    "Edukes":       { icon: GraduationCap,  color: "from-sky-400 to-blue-400" },
+    "Nusantara":    { icon: Globe,          color: "from-teal-500 to-emerald-500" },
+    "Ruang Publik": { icon: Users,          color: "from-violet-600 to-purple-600" }
+  };
+const categories = Object.keys(categoryConfig);
+
+// 🔥 KOMPONEN IKON TIKTOK 🔥
+const TikTokIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93v7.2c0 1.92-.52 3.86-1.6 5.43-1.08 1.58-2.6 2.8-4.39 3.32-1.78.53-3.72.5-5.45-.1-1.73-.6-3.23-1.73-4.26-3.18-1.03-1.44-1.55-3.2-1.5-4.97.05-1.77.67-3.48 1.8-4.86 1.13-1.37 2.68-2.34 4.41-2.73 1.72-.4 3.55-.26 5.16.42.34.14.66.3.96.48v4.13c-.23-.1-.47-.19-.71-.25-.9-.23-1.87-.2-2.73.1-.86.3-1.6.86-2.12 1.6-.52.74-.8 1.66-.78 2.6.02.93.35 1.83.92 2.54.57.7 1.34 1.19 2.2 1.38.86.19 1.79.1 2.58-.23.79-.34 1.45-.9 1.9-1.62.45-.73.68-1.6.66-2.5v-10.75h4.08c-.04-.5-.13-1-.28-1.48-.15-.49-.36-.95-.62-1.37-.26-.43-.57-.82-.93-1.17-.35-.35-.76-.66-1.19-.92-.44-.25-.9-.46-1.39-.61-.49-.15-1-.24-1.52-.28v-4.1z"/>
+  </svg>
+);
 
 // 🔥 KOMPONEN IKON WHATSAPP ASLI (SVG ORIGINAL) 🔥
 const WhatsAppIcon = ({ className }) => (
@@ -43,7 +65,6 @@ const getReadingTime = (text) => {
     return Math.ceil(wordCount / 200); 
 };
 
-// 🔥 PEMBUAT SLUG MURNI UNTUK RELATED NEWS 🔥
 const createSlug = (title) => {
     if (!title) return '#';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -58,7 +79,7 @@ export default function NewsDetail() {
     const chatEndRef = useRef(null); 
     const commentSectionRef = useRef(null); 
 
-    const [articleId, setArticleId] = useState(null); // Menyimpan ID asli secara rahasia
+    const [articleId, setArticleId] = useState(null); 
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [relatedNews, setRelatedNews] = useState([]);
@@ -80,6 +101,8 @@ export default function NewsDetail() {
     const [toast, setToast] = useState({ show: false, message: '' });
     
     const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+    const [isThinking, setIsThinking] = useState(false); 
+    const [isSpeaking, setIsSpeaking] = useState(false); 
     const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
     const [chatMessages, setChatMessages] = useState([{ role: 'ai', text: 'Halo! Saya AI SultraFiks. Ada yang ingin Anda tanyakan tentang berita ini?' }]);
     const [userInput, setUserInput] = useState("");
@@ -109,19 +132,15 @@ export default function NewsDetail() {
         localStorage.setItem('theme', newMode ? 'dark' : 'light');
     };
 
-    // 1. MENCARI ARTIKEL MENGGUNAKAN JUDUL (SLUG) BUKAN ID
     useEffect(() => {
-        if (!params.id) return;
+        if (!params.id && !params.slug) return;
         
-        // Membaca Judul dari URL (yang tadinya format slug seperti: "kendari-bebas-sampah")
-        const slugParam = decodeURIComponent(String(params.id));
+        const slugParam = decodeURIComponent(String(params.id || params.slug));
 
         const fetchArticleData = async () => {
-            // Tarik seluruh berita untuk dicocokkan judulnya
             const { data: allNews, error } = await supabase.from('news').select('*');
 
             if (allNews && allNews.length > 0) {
-                // Temukan berita yang judul slug-nya cocok dengan URL
                 const currentArticle = allNews.find(item => {
                     if(!item.title) return false;
                     const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -130,7 +149,7 @@ export default function NewsDetail() {
 
                 if (currentArticle) {
                     const targetId = currentArticle.id;
-                    setArticleId(targetId); // Simpan ID asli secara rahasia
+                    setArticleId(targetId); 
 
                     const viewedKey = `viewed_${targetId}`;
                     const hasViewed = sessionStorage.getItem(viewedKey);
@@ -147,7 +166,6 @@ export default function NewsDetail() {
                     currentArticle.views = currentViews;
                     setArticle(currentArticle);
                     
-                    // Related News
                     setRelatedNews(allNews.filter(item => item.category === currentArticle.category && item.id !== targetId).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 4));
 
                     const rawAuthor = currentArticle.author || currentArticle.penulis || currentArticle.wartawan;
@@ -181,15 +199,14 @@ export default function NewsDetail() {
                     setEditorData(editorState);
                     setLoading(false);
                 } else {
-                    setLoading(false); // Berita tidak ditemukan
+                    setLoading(false); 
                 }
             }
         };
 
         fetchArticleData();
-    }, [params.id]);
+    }, [params.id, params.slug]);
 
-    // 2. FETCH LIKES & COMMENTS (Berjalan SETELAH articleId diketahui)
     useEffect(() => {
         if (!articleId) return;
 
@@ -208,6 +225,26 @@ export default function NewsDetail() {
     }, [articleId]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, isAIChatOpen]);
+
+    // 🔥 FUNGSI PARSER UNTUK BOLD, ITALIC, & QUOTE 🔥
+    const renderContent = (text) => {
+        if (!text) return null;
+        return text.split('\n').map((paragraph, index) => {
+          if (!paragraph.trim()) return <div key={index} className="h-4"></div>;
+          
+          let html = paragraph
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+            .replace(/_(.*?)_/g, '<i>$1</i>');                
+            
+          if (html.startsWith('&gt;') || html.startsWith('>')) {
+            return (
+              <blockquote key={index} className={`border-l-4 border-blue-500 pl-4 py-2 my-6 italic font-medium ${isDarkMode ? 'bg-slate-800/50 text-slate-300' : 'bg-blue-50/50 text-slate-700'}`} dangerouslySetInnerHTML={{ __html: html.replace(/^&gt;|^>\s*/, '') }} />
+            );
+          }
+    
+          return <p key={index} className={`mb-4 md:mb-6 leading-relaxed text-justify ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: html }} />;
+        });
+      };
 
     const showToast = (message) => {
         setToast({ show: true, message });
@@ -266,10 +303,8 @@ export default function NewsDetail() {
         } catch (error) { showToast("Gagal mengirim komentar. Coba lagi."); } finally { setIsSubmitting(false); }
     };
 
-    // 🔥 LOGIKA SHARE DIPERBARUI AGAR ROBOT WA BISA MEMBACA GAMBAR 🔥
     const handleShare = async (platform) => {
         const currentUrl = window.location.href; 
-        // Format Teks WhatsApp yang sangat disukai Robot WA (URL harus ada di baris baru)
         const waText = `*${article?.title}*\n\nBaca selengkapnya di SultraFiks:\n${currentUrl}`;
         
         let url = '';
@@ -318,6 +353,11 @@ export default function NewsDetail() {
         } catch (error) { setChatMessages(prev => [...prev, { role: 'ai', text: "Gagal terhubung ke AI." }]); } finally { setIsThinking(false); }
     };
 
+    const handleAISpeakNews = () => {
+        setIsSpeaking(!isSpeaking);
+        showToast(isSpeaking ? "Suara AI dimatikan." : "AI akan membacakan ringkasan...");
+    };
+
     if (loading) return <div className={`min-h-screen flex items-center justify-center transition-colors ${isDarkMode ? 'bg-[#0B0F19]' : 'bg-white'}`}><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>;
     if (!article) return <div className={`min-h-screen flex items-center justify-center font-bold uppercase tracking-widest transition-colors ${isDarkMode ? 'bg-[#0B0F19] text-slate-500' : 'bg-white text-slate-400'}`}>Memuat Berita SultraFiks...</div>;
 
@@ -341,30 +381,87 @@ export default function NewsDetail() {
                 )}
             </AnimatePresence>
 
-            <div className={`sticky top-0 z-50 backdrop-blur-xl border-b px-3 md:px-4 py-2 transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
-                <div className="max-w-5xl mx-auto flex justify-between items-center">
-                    <button onClick={() => router.back()} className={`p-2 md:p-2.5 rounded-full transition-colors ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}>
-                        <ArrowLeft className="w-4 h-4 md:w-5 h-5" />
-                    </button>
-                    <a href="/" className={`text-base md:text-lg font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>SULTRA<span className="text-blue-600">FIKS</span></a>
+            {/* 🔥 NAVBAR (PERSIS SEPERTI HALAMAN HOME TERBARU) 🔥 */}
+            <header className="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300">
+                <div className={`absolute inset-0 backdrop-blur-md border-b shadow-sm ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800/80' : 'bg-white/90 border-slate-200/60'}`}></div>
+                <div className="relative z-10 max-w-7xl mx-auto px-3">
+                
+                {/* Baris Atas */}
+                <div className="h-14 md:h-16 flex items-center justify-between relative">
                     
-                    <div className="flex gap-2 items-center">
-                        <div className={`flex items-center gap-0.5 md:gap-1 rounded-full p-1 border shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex-1 flex justify-start">
+                        {/* Tombol Back untuk Halaman Berita */}
+                        <button onClick={() => router.back()} className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <ArrowLeft className="w-6 h-6 md:w-7 md:h-7"/>
+                        </button>
+                    </div>
+                    
+                    <div className="flex shrink-0 justify-center">
+                    <Link href="/" className="flex items-center gap-1.5 md:gap-2 group cursor-pointer">
+                        <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1.5 md:p-2 rounded-lg text-white group-hover:rotate-12 transition-transform shadow-md">
+                        <Zap className="w-4 h-4 md:w-5 md:h-5 fill-white" />
+                        </div>
+                        <span className={`text-xl md:text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        SULTRA<span className="text-blue-600">FIKS</span>
+                        </span>
+                    </Link>
+                    </div>
+                    
+                    <div className="flex-1 flex justify-end items-center gap-2 md:gap-4">
+                        <div className={`hidden md:flex items-center gap-0.5 md:gap-1 rounded-full p-1 border shadow-sm ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                             <button onClick={() => setFontSize(f => Math.max(12, f - 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Minus className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
                             <span className={`text-[9px] md:text-[11px] font-black px-0.5 md:px-1 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Aa</span>
                             <button onClick={() => setFontSize(f => Math.min(28, f + 2))} className={`p-1 md:p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Plus className="w-3.5 h-3.5 md:w-4 md:h-4"/></button>
-                            
-                            <div className={`w-px h-4 mx-0.5 md:mx-1 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}></div>
-                            
-                            <button onClick={toggleDarkMode} className={`p-1 md:p-1.5 rounded-full transition-all ${isDarkMode ? 'text-yellow-400 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-200'}`}>
-                                {isDarkMode ? <Sun className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" /> : <Moon className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />}
-                            </button>
                         </div>
+                        <button onClick={toggleDarkMode} className={`w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full transition-all border shadow-sm ${isDarkMode ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                            {isDarkMode ? <Sun className="w-4 h-4 md:w-5 md:h-5 fill-current" /> : <Moon className="w-4 h-4 md:w-5 md:h-5 fill-current" />}
+                        </button>
                     </div>
                 </div>
-            </div>
 
-            <main className="max-w-5xl mx-auto px-4 py-6 md:py-8 pb-10">
+                {/* Pengatur Font Khusus Mobile ditaruh di baris kedua untuk kerapian */}
+                <div className="md:hidden pb-3 px-1 mt-1 flex justify-center">
+                    <div className={`flex items-center justify-center w-full gap-2 rounded-xl p-2 border shadow-sm ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                        <button onClick={() => setFontSize(f => Math.max(12, f - 2))} className={`p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Minus className="w-4 h-4"/></button>
+                        <span className={`text-xs font-black px-2 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Ukuran Teks Berita</span>
+                        <button onClick={() => setFontSize(f => Math.min(28, f + 2))} className={`p-1.5 transition-colors rounded-full ${isDarkMode ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-700' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-200'}`}><Plus className="w-4 h-4"/></button>
+                    </div>
+                </div>
+
+                {/* Kategori Berita dengan Icon */}
+                <div className="flex items-center justify-between pb-3 pt-1 px-1">
+                    <div className="overflow-x-auto no-scrollbar flex gap-3 md:gap-5 items-center w-full md:w-auto">
+                        <Link href="/" className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
+                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600'}`}>
+                            <HomeIcon className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform`} />
+                            </div>
+                            <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800'}`}>Home</span>
+                        </Link>
+                        {categories.map((cat) => {
+                        const config = categoryConfig[cat];
+                        const IconComponent = config.icon;
+                        const isActive = article?.category === cat; 
+                        return (
+                            <Link key={cat} href={`/?cat=${cat}`} className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
+                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
+                                <IconComponent className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
+                            </div>
+                            <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
+                            </Link>
+                        )
+                        })}
+                    </div>
+                </div>
+                </div>
+            </header>
+
+            <main className="max-w-6xl mx-auto px-4 pt-[180px] md:pt-[150px] pb-10">
+                
+                {/* 🔥 SLOT IKLAN HEADER 🔥 */}
+                <div className="w-full h-16 md:h-[120px] mb-6 md:mb-10 relative bg-transparent">
+                    <AdBanner position="header" />
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
                     <div className="lg:col-span-8">
                         {/* KATEGORI & JUDUL */}
@@ -374,7 +471,7 @@ export default function NewsDetail() {
                         <h1 className={`text-xl md:text-3xl lg:text-4xl font-black leading-tight md:leading-snug mb-4 md:mb-5 tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{article?.title}</h1>
                         
                         {/* INFO MEDIA & WAKTU */}
-                        <div className={`flex items-center justify-between border-b pb-3 md:pb-4 mb-3 md:mb-4 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                        <div className={`flex items-center justify-between border-b pb-3 md:pb-4 mb-4 md:mb-6 ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                             <div className="flex items-center gap-3 md:gap-4">
                                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
                                     <Zap className="w-5 h-5 md:w-6 md:h-6 fill-white text-white stroke-white" />
@@ -412,25 +509,28 @@ export default function NewsDetail() {
                             </div>
                         </div>
 
-                        {/* GAMBAR UTAMA */}
-                        <div className={`mb-2 md:mb-3 rounded-2xl md:rounded-3xl overflow-hidden shadow-lg md:shadow-2xl relative w-full aspect-[4/3] md:aspect-video bg-slate-100`}>
+                        {/* 🔥 FOTO ORIGINAL RESOLUSI (TIDAK DIPOTONG / TIDAK DIBLUR) 🔥 */}
+                        <div className="mb-4 md:mb-6 w-full flex flex-col items-center group relative">
                             {article?.image_url ? (
-                                <div className="relative group overflow-hidden w-full h-full">
-                                    <img src={article.image_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={article?.title} />
-                                    
+                                <div className="relative w-full flex justify-center bg-transparent">
+                                    <img 
+                                        src={article.image_url} 
+                                        className="w-full h-auto max-h-[700px] object-contain rounded-xl md:rounded-2xl shadow-sm" 
+                                        alt={article?.title} 
+                                    />
                                     {(!article?.photo_source || article.photo_source.trim() === '') && (
-                                        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1 md:gap-1.5 pointer-events-none opacity-60 drop-shadow-lg z-10">
-                                            <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-0.5 md:p-1 rounded text-white shadow-sm shrink-0">
-                                                <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 fill-white text-white" />
+                                        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1.5 pointer-events-none opacity-90 drop-shadow-2xl z-20">
+                                            <div className="bg-gradient-to-tr from-blue-600 to-blue-400 p-1 md:p-1.5 rounded-md text-white shadow-lg shrink-0">
+                                                <Zap className="w-3 h-3 md:w-4 md:h-4 fill-white text-white" />
                                             </div>
-                                            <span className="text-white text-xs md:text-base font-black italic tracking-tighter shrink-0" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.8)' }}>
+                                            <span className="text-white text-sm md:text-lg font-black italic tracking-tighter shrink-0" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.9)' }}>
                                                 SULTRA<span className="text-blue-400">FIKS</span>
                                             </span>
                                         </div>
                                     )}
                                 </div>
                             ) : (
-                                <div className={`absolute inset-0 flex flex-col items-center justify-center ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`}>
+                                <div className={`w-full aspect-[4/3] rounded-xl md:rounded-2xl flex flex-col items-center justify-center shadow-sm ${isDarkMode ? 'text-slate-600 bg-slate-800' : 'text-slate-400 bg-slate-100'}`}>
                                     <ImageIcon size={48} className="mb-2" />
                                     <span className="text-sm font-bold">Tanpa Foto</span>
                                 </div>
@@ -438,7 +538,7 @@ export default function NewsDetail() {
                         </div>
                         
                         {/* CAPTION FOTO & SUMBER */}
-                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-6 md:mb-8 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-8 md:mb-12 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             <p className="text-left order-2 md:order-1">
                                 {article?.photo_caption || "Ilustrasi berita."}
                             </p>
@@ -449,24 +549,19 @@ export default function NewsDetail() {
                             )}
                         </div>
 
-                        {/* ISI BERITA */}
-                        <article className={`prose max-w-none mb-8 md:mb-10 transition-colors ${isDarkMode ? 'prose-invert text-slate-300' : 'text-slate-800'}`} style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
-                            {article?.content?.split('\n').map((p, i) => {
-                                if (!p.trim()) return null;
-                                if (p.trim().startsWith('>')) {
-                                    return (
-                                        <div key={i} className={`my-6 pl-4 md:pl-5 border-l-[3px] border-blue-600 relative py-3 rounded-r-xl ${isDarkMode ? 'bg-slate-800/50' : 'bg-blue-50/30'}`}>
-                                            <Quote className={`absolute top-2 right-2 w-5 h-5 md:w-6 md:h-6 rotate-180 ${isDarkMode ? 'text-slate-700' : 'text-blue-100'}`}/>
-                                            <p className={`italic font-semibold leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                                                <span className="text-blue-600 mr-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>“</span>
-                                                {p.trim().substring(1).trim()}
-                                                <span className="text-blue-600 ml-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>”</span>
-                                            </p>
-                                        </div>
-                                    );
-                                }
-                                return <p key={i} className="mb-4 md:mb-6 leading-relaxed text-justify">{p}</p>;
-                            })}
+                        {/* 🔥 SLOT IKLAN IN-ARTICLE 🔥 */}
+                        <div className="w-full h-[100px] md:h-[120px] mb-8 relative bg-transparent flex items-center justify-center">
+                            <AdBanner position="in_article" />
+                        </div>
+
+                        {/* 🔥 ISI BERITA (DENGAN PARSER FORMAT TEKS) 🔥 */}
+                        <article className="article-content" style={{ fontSize: `${fontSize}px`, lineHeight: '1.8' }}>
+                            <p className={`mb-4 md:mb-6 leading-relaxed text-justify ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`}>
+                                <strong className="uppercase">KENDARI — </strong> 
+                                <span dangerouslySetInnerHTML={{ __html: article?.content?.split('\n')[0].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<i>$1</i>') }} />
+                            </p>
+                            
+                            {renderContent(article?.content?.substring(article.content.indexOf('\n') + 1))}
                         </article>
 
                         {/* PROFIL WARTAWAN */}
@@ -628,73 +723,99 @@ export default function NewsDetail() {
                         </div>
                     </div>
 
-                    {/* SIDEBAR KANAN */}
-                    <div className="lg:col-span-4 space-y-6 md:space-y-8">
-                        <div className={`p-5 md:p-6 rounded-2xl md:rounded-3xl border sticky top-20 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
-                            <h3 className={`font-black text-base md:text-lg mb-4 md:mb-5 flex items-center gap-2 uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-red-500"/> Terkait <span className="text-blue-500 text-[10px] md:text-sm">({article?.category})</span>
-                            </h3>
+                    {/* 🔥 SIDEBAR KANAN (DIJADIKAN STICKY DALAM 1 WRAPPER) 🔥 */}
+                    <div className="lg:col-span-4">
+                        <div className="lg:sticky lg:top-32 flex flex-col gap-6 md:gap-8 h-fit pb-10">
                             
-                            <div className="space-y-3 md:space-y-4">
-                                {relatedNews.length === 0 ? (
-                                    <div className={`p-5 md:p-6 rounded-xl md:rounded-2xl border border-dashed text-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                                        <p className={`text-[10px] md:text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Belum ada berita terkait di kategori ini.</p>
-                                    </div>
-                                ) : (
-                                    relatedNews.map((item) => (
-                                        <Link href={createSlug(item.title)} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
-                                            <div className="flex-1">
-                                                <h4 className={`font-bold text-xs md:text-sm line-clamp-2 transition-colors leading-snug ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{item.title}</h4>
-                                                <span className={`text-[9px] md:text-[10px] uppercase font-black tracking-widest flex items-center gap-1 mt-1.5 md:mt-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                                                    <Clock className="w-2.5 h-2.5 md:w-3 md:h-3"/> {timeAgo(item.created_at)}
-                                                </span>
-                                            </div>
-                                            <div className={`w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-100'}`}>
-                                                {item.image_url ? (
-                                                    <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Thumbnail" />
-                                                ) : (
-                                                    <ImageIcon className={`w-5 h-5 md:w-6 md:h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
-                                                )}
-                                            </div>
-                                        </Link>
-                                    ))
-                                )}
+                            {/* 🔥 SLOT IKLAN SIDEBAR 🔥 */}
+                            <div className="w-full aspect-[4/3] max-h-[300px] relative bg-transparent z-10">
+                                <AdBanner position="sidebar" />
                             </div>
+
+                            {/* 🔥 BERITA TERKAIT 🔥 */}
+                            <div className={`p-5 md:p-6 rounded-2xl md:rounded-3xl border ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
+                                <h3 className={`font-black text-base md:text-lg mb-4 md:mb-5 flex items-center gap-2 uppercase tracking-tighter italic ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-red-500"/> Terkait <span className="text-blue-500 text-[10px] md:text-sm">({article?.category})</span>
+                                </h3>
+                                
+                                <div className="space-y-3 md:space-y-4">
+                                    {relatedNews.length === 0 ? (
+                                        <div className={`p-5 md:p-6 rounded-xl md:rounded-2xl border border-dashed text-center ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                            <p className={`text-[10px] md:text-xs font-medium ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>Belum ada berita terkait di kategori ini.</p>
+                                        </div>
+                                    ) : (
+                                        relatedNews.map((item) => (
+                                            <Link href={createSlug(item.title)} key={item.id} className={`flex gap-3 md:gap-4 items-center group p-2.5 md:p-3 rounded-xl md:rounded-2xl shadow-sm border transition-all ${isDarkMode ? 'bg-slate-800 border-slate-700 hover:border-blue-500' : 'bg-white border-slate-100 hover:border-blue-200 hover:shadow-md'}`}>
+                                                <div className="flex-1">
+                                                    <h4 className={`font-bold text-xs md:text-sm line-clamp-2 transition-colors leading-snug ${isDarkMode ? 'text-slate-200 group-hover:text-blue-400' : 'text-slate-800 group-hover:text-blue-600'}`}>{item.title}</h4>
+                                                    <span className={`text-[9px] md:text-[10px] uppercase font-black tracking-widest flex items-center gap-1 mt-1.5 md:mt-2 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                        <Clock className="w-2.5 h-2.5 md:w-3 md:h-3"/> {timeAgo(item.created_at)}
+                                                    </span>
+                                                </div>
+                                                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-100'}`}>
+                                                    {item.image_url ? (
+                                                        <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Thumbnail" />
+                                                    ) : (
+                                                        <ImageIcon className={`w-5 h-5 md:w-6 md:h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                                                    )}
+                                                </div>
+                                            </Link>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
                     </div>
+
                 </div>
             </main>
 
-            {/* FOOTER */}
-            <footer className="bg-[#0f172a] text-white pt-10 md:pt-16 pb-6 px-4">
+            {/* 🔥 FOOTER BARU (SAMA SEPERTI HOME) 🔥 */}
+            <footer className="bg-[#0f172a] text-white pt-10 md:pt-16 pb-6 px-4 mt-6">
                 <div className="max-w-5xl mx-auto text-center md:text-left">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-10 md:mb-16">
-                        <div className="space-y-4 md:space-y-6">
-                            <a href="/" className="text-2xl md:text-3xl font-black italic text-blue-500">SULTRA<span className="text-white">FIKS</span></a>
-                            <p className="text-slate-400 text-xs md:text-sm leading-relaxed max-w-xs mx-auto md:mx-0">Media siber terdepan di Sulawesi Tenggara yang menyajikan informasi cepat, akurat, dan terpercaya.</p>
-                            <div className="flex justify-center md:justify-start gap-4">
-                                <Facebook className="w-4 h-4 md:w-5 md:h-5 text-slate-400 hover:text-blue-500 cursor-pointer" />
-                                <Twitter className="w-4 h-4 md:w-5 md:h-5 text-slate-400 hover:text-blue-400 cursor-pointer" />
-                                <Youtube className="w-4 h-4 md:w-5 md:h-5 text-slate-400 hover:text-red-500 cursor-pointer" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-8 md:mb-12">
+                        
+                        <div className="space-y-3">
+                            <a href="/" className="text-2xl md:text-3xl font-black italic text-blue-500 tracking-tighter">SULTRA<span className="text-white">FIKS</span></a>
+                            <p className="text-slate-400 text-[11px] md:text-sm leading-relaxed max-w-xs mx-auto md:mx-0">Media siber terdepan di Sulawesi Tenggara yang menyajikan informasi cepat, akurat, dan terpercaya.</p>
+                        </div>
+
+                        <div className="flex flex-col items-center md:items-start">
+                            <h4 className="font-black text-sm md:text-lg mb-4 md:mb-6 border-b border-slate-800 pb-2 uppercase tracking-widest text-blue-500 italic inline-block md:block">
+                                Official Sosmed
+                            </h4>
+                            <div className="flex flex-col gap-3">
+                                <a href="#" className="flex items-center gap-3 group w-fit">
+                                    <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Facebook className="w-4 h-4 fill-white" /></div>
+                                    <span className="text-slate-400 text-xs font-bold group-hover:text-[#1877F2] transition-colors">Facebook SultraFiks</span>
+                                </a>
+                                <a href="#" className="flex items-center gap-3 group w-fit">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Instagram className="w-4 h-4" /></div>
+                                    <span className="text-slate-400 text-xs font-bold group-hover:text-pink-500 transition-colors">Instagram SultraFiks</span>
+                                </a>
+                                <a href="#" className="flex items-center gap-3 group w-fit">
+                                    <div className="w-8 h-8 rounded-full bg-[#FF0000] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Youtube className="w-4 h-4 fill-white" /></div>
+                                    <span className="text-slate-400 text-xs font-bold group-hover:text-[#FF0000] transition-colors">YouTube SultraFiks</span>
+                                </a>
+                                <a href="#" className="flex items-center gap-3 group w-fit">
+                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black shadow-md group-hover:scale-110 transition-transform"><TikTokIcon className="w-4 h-4" /></div>
+                                    <span className="text-slate-400 text-xs font-bold group-hover:text-white transition-colors">TikTok SultraFiks</span>
+                                </a>
                             </div>
                         </div>
+
                         <div>
-                            <h4 className="font-black text-base md:text-lg mb-4 md:mb-6 border-b border-slate-800 pb-2 uppercase tracking-widest text-blue-500 italic">Kategori</h4>
-                            <ul className="space-y-3 md:space-y-4 text-slate-400 text-xs md:text-sm font-bold uppercase">
-                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => router.push('/?category=Politik')}>Politik & Hukum</li>
-                                <li className="hover:text-blue-400 cursor-pointer transition-colors" onClick={() => router.push('/?category=Ekonomi')}>Ekonomi Bisnis</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 className="font-black text-base md:text-lg mb-4 md:mb-6 border-b border-slate-800 pb-2 uppercase tracking-widest text-blue-500 italic">Redaksi</h4>
-                            <div className="space-y-3 md:space-y-4 text-slate-400 text-xs md:text-sm font-medium flex flex-col items-center md:items-start">
-                                <p className="flex items-center gap-2 md:gap-3"><Home className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-500"/> Kendari, Sultra</p>
-                                <div className="bg-blue-600/10 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-blue-500/20 mt-4 shadow-xl hover:bg-blue-600/20 transition-colors cursor-pointer">
-                                    <p className="text-[9px] md:text-[10px] text-blue-400 font-black mb-1 uppercase tracking-widest">Dikelola Oleh:</p>
-                                    <p className="text-white font-black text-sm md:text-base italic uppercase tracking-wider">CV.AVA AMAZONE.IND</p>
-                                </div>
+                            <h4 className="font-black text-sm md:text-lg mb-3 md:mb-4 text-blue-500 italic">Redaksi</h4>
+                            <div className="space-y-2 text-slate-400 text-[10px] md:text-xs font-medium flex flex-col items-center md:items-start">
+                                <p className="flex items-center gap-2"><HomeIcon className="w-3 h-3 text-blue-500"/> Kendari, Sultra</p>
+                                <p className="flex items-center gap-2"><Clock className="w-3 h-3 text-blue-500"/> Update 24 Jam</p>
                             </div>
                         </div>
+
+                    </div>
+                    <div className="pt-6 border-t border-slate-800/50 text-slate-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest">
+                        <p>© 2026 SULTRAFIKS. All Rights Reserved. CV.AVA AMAZONE.IND.</p>
                     </div>
                 </div>
             </footer>
