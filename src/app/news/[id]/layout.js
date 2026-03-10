@@ -3,17 +3,21 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
     const baseUrl = 'https://www.sultrafiks.com';
-    // Pastikan Bos sudah punya logo.png di folder public ya!
+    // Gambar logo cadangan
     const fallbackImage = `${baseUrl}/logo.png`; 
 
     try {
         const resolvedParams = await params;
-        const slugParam = decodeURIComponent(resolvedParams?.slug || '').toLowerCase();
-        if (!slugParam) throw new Error("Slug kosong");
+        
+        // 🔥 INI DIA KUNCI JAWABANNYA BOS! 🔥
+        // Kita tangkap 'id' atau 'slug', apapun nama foldernya di Next.js Bos!
+        const rawSlug = resolvedParams?.id || resolvedParams?.slug || '';
+        
+        if (!rawSlug) throw new Error("ID atau Slug tidak terbaca dari URL Bosku!");
 
+        const slugParam = decodeURIComponent(rawSlug).toLowerCase();
         const emergencyTitle = slugParam.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        // 🔥 JALUR NATIVE FETCH (SANGAT RINGAN & ANTI TIMEOUT) 🔥
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -21,9 +25,9 @@ export async function generateMetadata({ params }) {
              throw new Error("Kunci Vercel Belum Terbaca");
         }
 
+        // Ambil 4 kata pertama untuk pencarian kilat
         const searchWords = slugParam.split('-').slice(0, 4).join(' ');
 
-        // Tembak langsung API Supabase tanpa perantara
         const res = await fetch(`${supabaseUrl}/rest/v1/news?select=title,content,image_url&title=ilike.*${encodeURIComponent(searchWords)}*&limit=3`, {
             headers: {
                 'apikey': supabaseKey,
@@ -32,7 +36,7 @@ export async function generateMetadata({ params }) {
             cache: 'no-store'
         });
 
-        if (!res.ok) throw new Error("Gagal Konek ke Database");
+        if (!res.ok) throw new Error(`Database Error: ${res.status}`);
         
         const data = await res.json();
         
@@ -46,7 +50,7 @@ export async function generateMetadata({ params }) {
             if (!article) article = data[0];
         }
 
-        // 🔥 JIKA BERHASIL 🔥
+        // 🔥 BERHASIL DIAMBIL DARI DATABASE! 🔥
         if (article) {
             const cleanDesc = article.content 
                 ? article.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').substring(0, 130) + '...' 
@@ -75,7 +79,6 @@ export async function generateMetadata({ params }) {
             };
         }
 
-        // Jika berita sudah dihapus tapi server tidak error
         return {
             title: `${emergencyTitle} - SultraFiks`,
             description: 'Baca informasi selengkapnya di SultraFiks.',
@@ -86,11 +89,9 @@ export async function generateMetadata({ params }) {
         };
 
     } catch (error) {
-        // 🔥 INI RADAR ERROR KITA! 🔥
-        // Kalau masih masuk ke sini, WA akan menampilkan apa ALASAN ERROR-nya!
         return {
-            title: `SultraFiks Sedang Memuat...`,
-            description: `Pesan Sistem: ${error.message}`,
+            title: `SultraFiks Error`,
+            description: `Pesan: ${error.message}`,
             openGraph: {
                 images: [{ url: fallbackImage, width: 1200, height: 630 }],
             }
