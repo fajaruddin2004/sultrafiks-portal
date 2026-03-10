@@ -1,47 +1,52 @@
-import { supabase } from '@/lib/supabase';
-
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
     const baseUrl = 'https://www.sultrafiks.com';
-    
-    // Pastikan Bos sudah upload "logo.png" ke folder public sesuai instruksi sebelumnya
+    // Pastikan Bos sudah punya logo.png di folder public ya!
     const fallbackImage = `${baseUrl}/logo.png`; 
 
     try {
         const resolvedParams = await params;
-        if (!resolvedParams || !resolvedParams.slug) throw new Error("Slug kosong");
+        const slugParam = decodeURIComponent(resolvedParams?.slug || '').toLowerCase();
+        if (!slugParam) throw new Error("Slug kosong");
 
-        const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
-        
-        // Judul darurat kalau database sedang sibuk
         const emergencyTitle = slugParam.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        // 🔥 JURUS SNIPER: Ambil 4 kata pertama dari URL untuk dicari ke Supabase 🔥
-        // Contoh: "kakek-berusia-101-tahun"
+        // 🔥 JALUR NATIVE FETCH (SANGAT RINGAN & ANTI TIMEOUT) 🔥
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+             throw new Error("Kunci Vercel Belum Terbaca");
+        }
+
         const searchWords = slugParam.split('-').slice(0, 4).join(' ');
 
-        // Tarik HANYA berita yang judulnya mengandung kata "kakek berusia 101 tahun"
-        const { data } = await supabase
-            .from('news')
-            .select('title, content, image_url')
-            .ilike('title', `%${searchWords}%`)
-            .limit(3);
+        // Tembak langsung API Supabase tanpa perantara
+        const res = await fetch(`${supabaseUrl}/rest/v1/news?select=title,content,image_url&title=ilike.*${encodeURIComponent(searchWords)}*&limit=3`, {
+            headers: {
+                'apikey': supabaseKey,
+                'Authorization': `Bearer ${supabaseKey}`
+            },
+            cache: 'no-store'
+        });
 
+        if (!res.ok) throw new Error("Gagal Konek ke Database");
+        
+        const data = await res.json();
+        
         let article = null;
         if (data && data.length > 0) {
-            // Cocokkan slug-nya agar presisi
             article = data.find(item => {
                 if (!item.title) return false;
                 const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                 return itemSlug === slugParam || slugParam.includes(itemSlug.substring(0, 30));
             });
-            // Kalau meleset sedikit hurufnya, paksa ambil data hasil pencarian pertama
             if (!article) article = data[0];
         }
 
-        // 🔥 JIKA BERITA KETEMU DI DATABASE 🔥
+        // 🔥 JIKA BERHASIL 🔥
         if (article) {
             const cleanDesc = article.content 
                 ? article.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').substring(0, 130) + '...' 
@@ -70,25 +75,22 @@ export async function generateMetadata({ params }) {
             };
         }
 
-        // 🔥 JIKA BERITA DIHAPUS DARI DATABASE 🔥
-        // Teks "Berita Tidak Ditemukan" SUDAH DIMUSNAHKAN DARI KODINGAN INI!
+        // Jika berita sudah dihapus tapi server tidak error
         return {
-            title: emergencyTitle,
-            description: 'Baca informasi selengkapnya di SultraFiks, portal berita terdepan Sulawesi Tenggara.',
+            title: `${emergencyTitle} - SultraFiks`,
+            description: 'Baca informasi selengkapnya di SultraFiks.',
             openGraph: {
                 title: emergencyTitle,
-                description: 'Baca informasi selengkapnya di SultraFiks, portal berita terdepan Sulawesi Tenggara.',
-                url: `${baseUrl}/news/${slugParam}`,
                 images: [{ url: fallbackImage, width: 1200, height: 630 }],
-                type: 'article',
             }
         };
 
     } catch (error) {
-        // 🔥 JARING PENGAMAN TERAKHIR KALAU SERVER DOWN 🔥
+        // 🔥 INI RADAR ERROR KITA! 🔥
+        // Kalau masih masuk ke sini, WA akan menampilkan apa ALASAN ERROR-nya!
         return {
-            title: 'SultraFiks - Portal Berita Terkini',
-            description: 'Media siber terdepan di Sulawesi Tenggara.',
+            title: `SultraFiks Sedang Memuat...`,
+            description: `Pesan Sistem: ${error.message}`,
             openGraph: {
                 images: [{ url: fallbackImage, width: 1200, height: 630 }],
             }
