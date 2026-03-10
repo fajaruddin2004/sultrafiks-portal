@@ -5,6 +5,10 @@ import { NewsProvider } from "@/context/NewsContext";
 export const metadata = {
   title: "SultraFiks - Portal Berita",
   description: "Portal Berita Terkini Sulawesi Tenggara",
+  // 👇 INI DIA TEMPAT KODE VERIFIKASI GOOGLE-NYA BOS 👇
+  verification: {
+    google: '<meta name="google-site-verification" content="ZBRK98OFfG-R4gYEcKG1LyIWkKHvdI1fNZfk5e-3uMM" />', // Nanti ganti teks ini dengan kode asli dari Google
+  },
 };
 
 export default function RootLayout({ children }) {
