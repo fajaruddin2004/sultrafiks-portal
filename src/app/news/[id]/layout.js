@@ -1,90 +1,79 @@
-import { supabase } from '@/lib/supabase';
-
-export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
-    const baseUrl = 'https://www.sultrafiks.com';
-    const fallbackImage = `${baseUrl}/placeholder-news.jpg`;
+    const fallbackImage = 'https://www.sultrafiks.com/placeholder-news.jpg';
 
-    // SEMUA PROSES KITA MASUKKAN KE DALAM PELINDUNG (TRY-CATCH)
-    // Jadi apapun error di belakang layar, website TETAP BISA DIBUKA!
     try {
-        if (!params) throw new Error("Params kosong");
-        const resolvedParams = await params;
-        if (!resolvedParams || !resolvedParams.slug) throw new Error("Slug kosong");
+        // 1. Ambil slug
+        const resolvedParams = await Promise.resolve(params);
+        const slug = resolvedParams?.slug || '';
+        const slugString = decodeURIComponent(slug).toLowerCase();
+        const emergencyTitle = slugString.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-        const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
-        
-        // Judul darurat kalau database ngambek
-        const emergencyTitle = slugParam.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        // 2. Ambil Kunci dari Vercel
+        let url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-        // KARENA VERCEL SUDAH PUNYA KUNCI, KITA PAKAI JALUR RESMI YANG SUPER AMAN
-        const { data } = await supabase
-            .from('news')
-            .select('title, content, image_url')
-            .limit(200);
+        // Deteksi kalau kuncinya tidak terbaca
+        if (!url) throw new Error("URL_KOSONG");
+        if (!key) throw new Error("KEY_KOSONG");
 
-        let article = null;
-        if (data && data.length > 0) {
-            article = data.find(item => {
-                if (!item.title) return false;
-                const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                return itemSlug === slugParam;
-            });
+        // Perbaiki otomatis kalau Bos lupa pasang https://
+        if (!url.startsWith('http')) {
+            url = 'https://' + url;
         }
 
-        // JIKA BERITA KETEMU DI DATABASE
-        if (article) {
-            const cleanDesc = article.content 
-                ? article.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').substring(0, 120) + '...' 
-                : 'Baca berita selengkapnya di SultraFiks.';
+        // 3. Tembak Database (Metode Native Anti-Crash)
+        const res = await fetch(`${url}/rest/v1/news?select=title,content,image_url`, {
+            headers: {
+                'apikey': key,
+                'Authorization': `Bearer ${key}`
+            },
+            cache: 'no-store'
+        });
 
-            const finalImage = (article.image_url && article.image_url.startsWith('http')) 
+        if (!res.ok) throw new Error(`FETCH_GAGAL_KODE_${res.status}`);
+
+        const data = await res.json();
+        const article = data.find(item => {
+            if (!item.title) return false;
+            const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            return itemSlug === slugString;
+        });
+
+        if (article) {
+            const plainText = article.content 
+                ? article.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').substring(0, 110) + '...' 
+                : 'Berita selengkapnya di SultraFiks.';
+            
+            const finalImg = (article.image_url && article.image_url.startsWith('http')) 
                 ? article.image_url 
                 : fallbackImage;
 
             return {
-                title: `${article.title} - SultraFiks`,
-                description: cleanDesc,
+                title: article.title,
+                description: plainText,
                 openGraph: {
                     title: article.title,
-                    description: cleanDesc,
-                    url: `${baseUrl}/news/${slugParam}`,
-                    siteName: 'SultraFiks',
-                    images: [{ url: finalImage, width: 1200, height: 630, alt: article.title }],
-                    type: 'article',
-                },
-                twitter: {
-                    card: 'summary_large_image',
-                    title: article.title,
-                    images: [finalImage],
+                    description: plainText,
+                    images: [finalImg]
                 }
             };
         }
 
-        // JIKA BERITA TIDAK KETEMU, TAMPILKAN JUDUL DARI LINK & FOTO LOGO
+        // Kalau berita beneran nggak ada di database
         return {
-            title: `${emergencyTitle} - SultraFiks`,
-            description: 'Portal Berita Terkini Sulawesi Tenggara.',
-            openGraph: {
-                title: emergencyTitle,
-                description: 'Portal Berita Terkini Sulawesi Tenggara.',
-                url: `${baseUrl}/news/${slugParam}`,
-                images: [{ url: fallbackImage, width: 1200, height: 630 }],
-                type: 'article',
-            }
+            title: emergencyTitle,
+            description: 'Berita tidak ditemukan di database.',
+            openGraph: { images: [fallbackImage] }
         };
 
     } catch (error) {
-        // 🔥 JARING PENGAMAN TERAKHIR: ANTI ERROR 500 🔥
-        // Kalau terjadi masalah server parah, kembalikan tampilan normal (bukan layar putih!)
+        // 🔥 INI DIA JEBAKANNYA! KITA TAMPILKAN ERROR VERCEL KE LAYAR WA BOS 🔥
         return {
-            title: 'SultraFiks - Portal Berita Terkini',
-            description: 'Media siber terdepan di Sulawesi Tenggara.',
-            openGraph: {
-                images: [{ url: fallbackImage, width: 1200, height: 630 }],
-            }
+            title: `SultraFiks Error: ${error.message}`,
+            description: 'Sedang mengecek sistem Vercel...',
+            openGraph: { images: [fallbackImage] }
         };
     }
 }
