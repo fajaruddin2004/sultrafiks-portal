@@ -1,54 +1,52 @@
-// 🔥 JALUR BYPASS SERVER-SIDE VERCEL 🔥
+import { supabase } from '@/lib/supabase';
+
+// 🔥 Anti Cache Vercel 🔥
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
     try {
-        const slugParam = decodeURIComponent(params.slug);
+        // 🔥 INI KUNCI UTAMANYA: Wajib di-await untuk Next.js terbaru!
+        const resolvedParams = await params; 
+        const slugParam = resolvedParams.slug;
         
-        // Menggunakan kunci environment dari Vercel langsung
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-        // Tembak langsung ke API REST Supabase (Anti Gagal di Server Vercel)
-        const res = await fetch(`${supabaseUrl}/rest/v1/news?select=title,content,image_url&status=eq.published`, {
-            headers: {
-                'apikey': supabaseKey,
-                'Authorization': `Bearer ${supabaseKey}`
-            },
-            cache: 'no-store'
-        });
-
-        if (!res.ok) throw new Error('Gagal menarik data dari Supabase Server');
-        
-        const allNews = await res.json();
+        // Tarik data langsung dari Supabase Client yang sudah stabil
+        const { data: allNews } = await supabase.from('news').select('title, content, image_url');
         
         let article = null;
         if (allNews && allNews.length > 0) {
-            article = allNews.find(item => {
-                if (!item.title) return false;
-                const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                return itemSlug === slugParam;
-            });
+            // Looping pencarian slug yang lebih akurat
+            for (const item of allNews) {
+                if (item.title) {
+                    const itemSlug = item.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                    if (itemSlug === slugParam) {
+                        article = item;
+                        break;
+                    }
+                }
+            }
         }
 
-        // Jika slug tidak cocok dengan database
+        const baseUrl = 'https://www.sultrafiks.com';
+
+        // JIKA GAGAL (Server Lemot/Slug Salah), JANGAN TAMPILKAN "TIDAK DITEMUKAN"
         if (!article) {
             return {
-                title: 'Berita Tidak Ditemukan - SultraFiks',
-                description: 'Portal Berita Terkini Sulawesi Tenggara'
+                title: 'SultraFiks - Portal Berita Terkini Sulawesi Tenggara',
+                description: 'Dapatkan informasi terbaru, terakurat, dan terpercaya hari ini.',
+                openGraph: {
+                    images: [`${baseUrl}/placeholder-news.jpg`]
+                }
             };
         }
 
-        // Bersihkan tag HTML (seperti <br> atau <strong>) agar deskripsi WA rapi
+        // BERHASIL DITEMUKAN!
         const plainText = article.content 
             ? article.content.replace(/<[^>]+>/g, '').substring(0, 150) + '...' 
             : 'Baca informasi selengkapnya di portal berita terdepan SultraFiks.';
 
-        // Link Utama Domain Bos
-        const baseUrl = 'https://www.sultrafiks.com';
-        const articleUrl = `${baseUrl}/news/${slugParam}`;
         const imageUrl = article.image_url || `${baseUrl}/placeholder-news.jpg`;
+        const articleUrl = `${baseUrl}/news/${slugParam}`;
 
         return {
             title: `${article.title} - SultraFiks`,
@@ -61,7 +59,7 @@ export async function generateMetadata({ params }) {
                 images: [
                     {
                         url: imageUrl,
-                        secureUrl: imageUrl, // WA sangat butuh parameter ini
+                        secureUrl: imageUrl,
                         width: 1200,
                         height: 630,
                         alt: article.title,
@@ -75,17 +73,11 @@ export async function generateMetadata({ params }) {
                 title: article.title,
                 description: plainText,
                 images: [imageUrl],
-            },
-            alternates: {
-                canonical: articleUrl,
             }
         };
     } catch (err) {
-        // Fallback kalau server benar-benar down
-        return {
-            title: 'SultraFiks - Portal Berita Terkini',
-            description: 'Dapatkan berita terbaru seputar Sulawesi Tenggara.'
-        };
+        // Fallback terakhir jika sistem down
+        return { title: 'SultraFiks - Berita Terkini' };
     }
 }
 
