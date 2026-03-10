@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 
-export const revalidate = 0;
+// 🔥 INI RAHASIANYA: WAJIB ADA AGAR WHATSAPP PERCAYA SAMA WEBSITE KITA 🔥
+export const metadataBase = new URL('https://www.sultrafiks.com');
+export const revalidate = 0; 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
@@ -8,61 +10,56 @@ export async function generateMetadata({ params }) {
         const resolvedParams = await params;
         const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
 
-        // 🔥 JURUS SNIPER: Ambil 4 kata pertama dari link untuk pencarian super cepat
-        // Contoh link: "dua-mobil-dinas-pemprov..." -> Akan jadi "dua mobil dinas pemprov"
-        const searchWords = slugParam.split('-').slice(0, 4).join(' ');
-
-        // Server hanya menarik maksimal 5 berita yang judulnya mirip dengan 4 kata tadi
-        const { data: searchResults, error } = await supabase
+        // Tarik data database dengan aman
+        const { data: allNews } = await supabase
             .from('news')
             .select('title, content, image_url')
-            .ilike('title', `%${searchWords}%`) // Cari yang mengandung kata tersebut
-            .limit(5);
-
-        if (error || !searchResults || searchResults.length === 0) {
-            return { title: 'SultraFiks - Portal Berita Terkini' };
-        }
+            .order('created_at', { ascending: false });
 
         let article = null;
         
-        // Pencocokan akhir agar tidak salah berita
-        for (const item of searchResults) {
-            if (item.title) {
+        // Pencarian super presisi
+        if (allNews && allNews.length > 0) {
+            article = allNews.find(item => {
+                if (!item.title) return false;
                 const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                if (itemSlug === slugParam) {
-                    article = item;
-                    break;
-                }
-            }
+                return itemSlug === slugParam;
+            });
         }
 
+        // Jika Gagal / Berita Dihapus
         if (!article) {
-            return { title: 'SultraFiks - Portal Berita Terkini' };
+            return {
+                title: 'SultraFiks - Portal Berita Terkini',
+                description: 'Baca berita terupdate seputar Sulawesi Tenggara.',
+                openGraph: {
+                    images: ['/placeholder-news.jpg']
+                }
+            };
         }
 
-        const baseUrl = 'https://www.sultrafiks.com';
-        
-        // Bersihkan teks dari kode HTML agar WA rapi
+        // Pembersihan Teks (Hapus enter dan kode HTML agar WA rapi seperti KendariInfo)
         const plainText = article.content 
-            ? article.content.replace(/<[^>]+>/g, '').substring(0, 130) + '...' 
-            : 'Baca selengkapnya di SultraFiks.';
+            ? article.content.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').substring(0, 140) + '...' 
+            : 'Baca selengkapnya di portal berita terpercaya SultraFiks.';
 
-        const imageUrl = article.image_url || `${baseUrl}/placeholder-news.jpg`;
-        const articleUrl = `${baseUrl}/news/${slugParam}`;
+        // Format URL Gambar
+        const imageUrl = article.image_url && article.image_url.startsWith('http') 
+            ? article.image_url 
+            : '/placeholder-news.jpg';
 
-        // 🔥 FORMAT WAJIB WHATSAPP 🔥
+        // 🔥 STRUKTUR OPENGRAPH KHUSUS WHATSAPP & FACEBOOK 🔥
         return {
             title: article.title,
             description: plainText,
             openGraph: {
                 title: article.title,
                 description: plainText,
-                url: articleUrl,
+                url: `/news/${slugParam}`,
                 siteName: 'SultraFiks',
                 images: [
                     {
-                        url: imageUrl,
-                        secureUrl: imageUrl,
+                        url: imageUrl, // Vercel akan otomatis menggabung dengan metadataBase
                         width: 1200,
                         height: 630,
                         alt: article.title,
@@ -79,7 +76,7 @@ export async function generateMetadata({ params }) {
             }
         };
     } catch (err) {
-        return { title: 'SultraFiks - Berita Terkini' };
+        return { title: 'SultraFiks - Berita Terkini Sulawesi Tenggara' };
     }
 }
 
