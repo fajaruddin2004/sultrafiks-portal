@@ -1,6 +1,4 @@
-import { supabase } from '@/lib/supabase';
-
-// 🔥 Anti Cache Vercel 🔥
+// 🔥 JURUS TEMBAK LANGSUNG ANTI VERCEL ERROR 🔥
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
@@ -8,63 +6,57 @@ export async function generateMetadata({ params }) {
     try {
         const resolvedParams = await params;
         const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
-        
-        // 🔥 TARIK 200 BERITA TERBARU SAJA AGAR LOADINGNYA KILAT!
-        const { data: allNews } = await supabase
-            .from('news')
-            .select('title, content, image_url')
-            .order('created_at', { ascending: false })
-            .limit(200);
+
+        // =================================================================
+        // ⚠️ BOS FAJARUDDIN: GANTI 2 BARIS INI DENGAN DATA SUPABASE BOS ⚠️
+        // =================================================================
+        const SUPABASE_URL = "https://swyafiunqihshjgtlkmd.supabase.co"; // Ganti dengan URL Supabase Bos
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3eWFmaXVucWloc2hqZ3Rsa21kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NTQ5MjYsImV4cCI6MjA4NzMzMDkyNn0.lKVnhCeeF2HYn5ByPHB05b_cGT4vx7ZrYwsSWubrTcI"; // Ganti dengan Kunci Anon Bos
+        // =================================================================
+
+        // Tembak database langsung pakai jalur REST API murni (Pasti Tembus Vercel)
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/news?select=title,content,image_url`, {
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            cache: 'no-store'
+        });
+
+        const allNews = await res.json();
         
         let article = null;
-        
-        if (allNews && allNews.length > 0) {
-            // TAHAP 1: Cari pencocokan judul persis 100%
-            for (const item of allNews) {
-                if (item.title) {
-                    const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                    if (itemSlug === slugParam) {
-                        article = item;
-                        break;
-                    }
-                }
-            }
-
-            // TAHAP 2: JURUS SAPU JAGAT (Kalau judul kepanjangan, kita cari pakai potongan kata)
-            if (!article) {
-                const shortSlug = slugParam.substring(0, 30); // Ambil 30 huruf pertama saja
-                article = allNews.find(item => {
-                    if (!item.title) return false;
-                    const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                    return itemSlug.includes(shortSlug);
-                });
-            }
+        if (Array.isArray(allNews) && allNews.length > 0) {
+            // Pencarian super canggih: Cari kemiripan slug
+            const shortSlug = slugParam.substring(0, 30); // Ambil 30 huruf pertama saja
+            
+            article = allNews.find(item => {
+                if (!item.title) return false;
+                const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                return itemSlug.includes(shortSlug) || slugParam.includes(itemSlug.substring(0, 30));
+            });
         }
 
         const baseUrl = 'https://www.sultrafiks.com';
 
-        // JIKA BERITA BENAR-BENAR TERHAPUS DARI DATABASE
+        // JIKA GAGAL KONEKSI / BERITA DIHAPUS
         if (!article) {
             return {
                 title: 'SultraFiks - Portal Berita Terkini',
-                description: 'Dapatkan informasi terbaru, terakurat, dan terpercaya hari ini.',
-                openGraph: {
-                    images: [`${baseUrl}/placeholder-news.jpg`]
-                }
+                description: 'Media siber terdepan di Sulawesi Tenggara.',
+                openGraph: { images: [`${baseUrl}/placeholder-news.jpg`] }
             };
         }
 
-        // BERHASIL KETEMU! SIAPKAN DESKRIPSI & GAMBAR
+        // BERHASIL DITARIK DARI DATABASE!
         const plainText = article.content 
-            ? article.content.replace(/<[^>]+>/g, '').substring(0, 150) + '...' 
-            : 'Baca informasi selengkapnya di portal berita terdepan SultraFiks.';
+            ? article.content.replace(/<[^>]+>/g, '').substring(0, 140) + '...' 
+            : 'Baca informasi selengkapnya hanya di SultraFiks.';
 
-        // Pastikan link gambar tidak error
+        // Cek gambar apakah ada
         const imageUrl = article.image_url && article.image_url.startsWith('http') 
             ? article.image_url 
             : `${baseUrl}/placeholder-news.jpg`;
-            
-        const articleUrl = `${baseUrl}/news/${slugParam}`;
 
         return {
             title: `${article.title} - SultraFiks`,
@@ -72,7 +64,7 @@ export async function generateMetadata({ params }) {
             openGraph: {
                 title: article.title,
                 description: plainText,
-                url: articleUrl,
+                url: `${baseUrl}/news/${slugParam}`,
                 siteName: 'SultraFiks',
                 images: [
                     {
@@ -91,13 +83,10 @@ export async function generateMetadata({ params }) {
                 title: article.title,
                 description: plainText,
                 images: [imageUrl],
-            },
-            alternates: {
-                canonical: articleUrl,
             }
         };
     } catch (err) {
-        return { title: 'SultraFiks - Berita Terkini Sulawesi Tenggara' };
+        return { title: 'SultraFiks - Berita Terkini' };
     }
 }
 
