@@ -33,7 +33,7 @@ export async function generateMetadata({ params }) {
         : 'Baca informasi selengkapnya hanya di SultraFiks, portal berita terdepan di Sulawesi Tenggara.';
 
     // 6. Susun Meta Tags Super Lengkap untuk WhatsApp, FB, dan IG
-    const baseUrl = 'https://sultrafiks-portal.vercel.app';
+    const baseUrl = 'https://sultrafiks.com';
     const articleUrl = `${baseUrl}/news/${slugParam}`;
     const imageUrl = article.image_url || `${baseUrl}/placeholder-news.jpg`;
 
