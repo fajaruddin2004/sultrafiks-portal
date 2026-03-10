@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 
-// Mematikan cache agar Vercel selalu narik gambar terbaru
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
@@ -9,48 +8,49 @@ export async function generateMetadata({ params }) {
         const resolvedParams = await params;
         const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
 
-        // KITA PAKAI JALUR RESMI (TANPA MANUAL URL/KEY)
-        // Ambil 500 berita terbaru untuk dicocokkan
-        const { data: allNews, error } = await supabase
+        // 🔥 JURUS SNIPER: Ambil 4 kata pertama dari link untuk pencarian super cepat
+        // Contoh link: "dua-mobil-dinas-pemprov..." -> Akan jadi "dua mobil dinas pemprov"
+        const searchWords = slugParam.split('-').slice(0, 4).join(' ');
+
+        // Server hanya menarik maksimal 5 berita yang judulnya mirip dengan 4 kata tadi
+        const { data: searchResults, error } = await supabase
             .from('news')
             .select('title, content, image_url')
-            .order('created_at', { ascending: false })
-            .limit(500);
+            .ilike('title', `%${searchWords}%`) // Cari yang mengandung kata tersebut
+            .limit(5);
 
-        if (error) throw error;
+        if (error || !searchResults || searchResults.length === 0) {
+            return { title: 'SultraFiks - Portal Berita Terkini' };
+        }
 
         let article = null;
-
-        if (allNews && allNews.length > 0) {
-            // Pencarian kecocokan judul yang presisi
-            article = allNews.find(item => {
-                if (!item.title) return false;
+        
+        // Pencocokan akhir agar tidak salah berita
+        for (const item of searchResults) {
+            if (item.title) {
                 const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                return itemSlug === slugParam;
-            });
+                if (itemSlug === slugParam) {
+                    article = item;
+                    break;
+                }
+            }
+        }
+
+        if (!article) {
+            return { title: 'SultraFiks - Portal Berita Terkini' };
         }
 
         const baseUrl = 'https://www.sultrafiks.com';
-
-        // JIKA GAGAL (Teks ini saya ganti biar Bos tahu kalau masih error)
-        if (!article) {
-            return {
-                title: 'SultraFiks - Portal Berita Terkini',
-                description: 'Baca berita selengkapnya di website resmi SultraFiks.',
-            };
-        }
-
-        // BERHASIL KETEMU! Siapkan Gambar dan Teks
+        
+        // Bersihkan teks dari kode HTML agar WA rapi
         const plainText = article.content 
             ? article.content.replace(/<[^>]+>/g, '').substring(0, 130) + '...' 
-            : 'Baca informasi selengkapnya di portal berita terdepan SultraFiks.';
+            : 'Baca selengkapnya di SultraFiks.';
 
-        const imageUrl = article.image_url && article.image_url.startsWith('http') 
-            ? article.image_url 
-            : `${baseUrl}/placeholder-news.jpg`;
-            
+        const imageUrl = article.image_url || `${baseUrl}/placeholder-news.jpg`;
         const articleUrl = `${baseUrl}/news/${slugParam}`;
 
+        // 🔥 FORMAT WAJIB WHATSAPP 🔥
         return {
             title: article.title,
             description: plainText,
@@ -62,7 +62,7 @@ export async function generateMetadata({ params }) {
                 images: [
                     {
                         url: imageUrl,
-                        secureUrl: imageUrl, // Wajib untuk WhatsApp
+                        secureUrl: imageUrl,
                         width: 1200,
                         height: 630,
                         alt: article.title,
@@ -79,7 +79,7 @@ export async function generateMetadata({ params }) {
             }
         };
     } catch (err) {
-        return { title: 'SultraFiks - Sedang Memuat Database...' };
+        return { title: 'SultraFiks - Berita Terkini' };
     }
 }
 
