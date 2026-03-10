@@ -88,7 +88,6 @@ export default function NewsDetail() {
     const [isSaved, setIsSaved] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
-    // 🔥 MURNI DARI DATABASE TANPA REKAYASA 🔥
     const [likesCount, setLikesCount] = useState(0); 
     const [isLiked, setIsLiked] = useState(false);
     const [comments, setComments] = useState([]);
@@ -151,7 +150,6 @@ export default function NewsDetail() {
                     const viewedKey = `viewed_${targetId}`;
                     const hasViewed = sessionStorage.getItem(viewedKey);
                     
-                    // 🔥 LOGIC VIEWS MURNI DARI SUPABASE 🔥
                     let currentViews = currentArticle.views || 0;
 
                     if (!hasViewed) {
@@ -209,7 +207,6 @@ export default function NewsDetail() {
 
         const fetchInteractions = async () => {
             const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
-            // 🔥 LOGIC LIKES MURNI DARI SUPABASE 🔥
             if (newsData) setLikesCount(newsData.likes_count || 0);
             
             const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
@@ -282,34 +279,36 @@ export default function NewsDetail() {
         } catch (error) { showToast("Gagal mengirim komentar. Coba lagi."); } finally { setIsSubmitting(false); }
     };
 
+    // 🔥 KODINGAN TOMBOL SHARE ANTI-CACHE SUDAH SAYA MASUKKAN KEMBALI 🔥
     const handleShare = async (platform) => {
-        const currentUrl = window.location.href; 
-        const waText = `*${article?.title}*\n\nBaca selengkapnya di SultraFiks:\n${currentUrl}`;
+        const cleanUrl = window.location.origin + window.location.pathname;
+        const uniqueUrl = `${cleanUrl}?v=${Date.now()}`; 
+        const waText = `*${article?.title}*\n\nBaca selengkapnya di SultraFiks:\n${uniqueUrl}`;
         
         let url = '';
         
         switch(platform) {
             case 'facebook': 
-                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`; 
+                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(uniqueUrl)}`; 
                 break;
             case 'twitter': 
-                url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(article?.title)}`; 
+                url = `https://twitter.com/intent/tweet?url=${encodeURIComponent(uniqueUrl)}&text=${encodeURIComponent(article?.title)}`; 
                 break;
             case 'whatsapp': 
                 url = `https://api.whatsapp.com/send?text=${encodeURIComponent(waText)}`; 
                 break;
             case 'instagram':
-                navigator.clipboard.writeText(currentUrl);
+                navigator.clipboard.writeText(cleanUrl);
                 showToast("Tautan disalin! Silakan buka Instagram untuk membagikan. 📸");
                 setTimeout(() => { window.open('https://instagram.com', '_blank'); }, 1500);
                 return;
             case 'copy': 
-                navigator.clipboard.writeText(currentUrl); 
+                navigator.clipboard.writeText(uniqueUrl); 
                 return showToast("Tautan berita berhasil disalin! 🔗");
             case 'native':
                 if (navigator.share) {
                     try {
-                        await navigator.share({ title: article?.title, text: `Baca selengkapnya:`, url: currentUrl });
+                        await navigator.share({ title: article?.title, text: `Baca selengkapnya:`, url: uniqueUrl });
                         return;
                     } catch (err) { return; }
                 }
@@ -498,14 +497,21 @@ export default function NewsDetail() {
                             )}
                         </div>
                         
-                        <div className={`flex flex-col md:flex-row md:justify-between text-[10px] md:text-xs mb-4 md:mb-5 px-1 md:px-2 italic leading-tight md:leading-relaxed gap-0.5 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            <p className="text-left order-2 md:order-1">
+                        {/* 🔥 BAGIAN CAPTION & SUMBER (SUDAH DIPERBAIKI SESUAI PERMINTAAN) 🔥 */}
+                        <div className={`flex flex-col md:flex-row md:justify-between items-start md:items-start mb-4 md:mb-5 px-1 md:px-2 gap-2 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {/* Ukuran Caption Diperbesar (text-xs md:text-sm) */}
+                            <p className="text-left order-2 md:order-1 text-xs md:text-sm italic leading-relaxed">
                                 {article?.photo_caption || "Ilustrasi berita."}
                             </p>
+                            
+                            {/* Tulisan Sumber diganti Ikon Gambar dan dikecilkan */}
                             {article?.photo_source && article.photo_source.trim() !== '' && (
-                                <p className="font-bold uppercase tracking-widest text-left md:text-right order-1 md:order-2">
-                                    Sumber: {article.photo_source}
-                                </p>
+                                <div className="flex items-center gap-1.5 order-1 md:order-2 opacity-70 shrink-0">
+                                    <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" /> 
+                                    <p className="font-bold uppercase tracking-widest text-[8px] md:text-[9px]">
+                                        {article.photo_source}
+                                    </p>
+                                </div>
                             )}
                         </div>
 
@@ -522,16 +528,17 @@ export default function NewsDetail() {
                                 const trimmed = p.trim();
                                 const isQuote = trimmed.startsWith('>') || trimmed.startsWith('"') || trimmed.startsWith('“') || trimmed.startsWith('‘') || trimmed.startsWith('”');
 
+                                // 🔥 KODINGAN KUTIPAN BARU DENGAN SHADOW DI KANAN 🔥
                                 if (isQuote) {
                                     let cleanHtml = html.replace(/^[>\"“‘”]\s*/, '').replace(/[\"”’]\s*$/, '');
                                     
                                     return (
-                                        <div key={i} className={`my-4 md:my-6 pl-4 md:pl-5 border-l-[3px] border-blue-600 relative py-3 rounded-r-xl shadow-sm ${isDarkMode ? 'bg-slate-800/50' : 'bg-blue-50/50'}`}>
-                                            <p className={`italic font-medium leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-200' : 'text-slate-700'}`}>
-                                                <span className="text-blue-600 mr-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>“</span>
-                                                <span dangerouslySetInnerHTML={{ __html: cleanHtml }} />
-                                                <span className="text-blue-600 ml-1 leading-none align-bottom" style={{ fontSize: `${fontSize * 1.5}px` }}>”</span>
-                                            </p>
+                                        <div key={i} className="my-6 md:my-8 relative py-4 px-2">
+                                            {/* Bayangan Watermark Kutipan (Opacity 30%, Posisi Kanan Teks) */}
+                                            <Quote className={`absolute top-1/2 -translate-y-1/2 right-2 w-16 h-16 md:w-24 md:h-24 z-0 opacity-30 ${isDarkMode ? 'text-slate-600 fill-slate-600' : 'text-slate-400 fill-slate-300'}`} />
+                                            
+                                            {/* Teks Kutipan Tanpa Garis Kiri & Tanda Kutip Otomatis */}
+                                            <p className={`italic font-semibold leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: cleanHtml }} />
                                         </div>
                                     );
                                 }
