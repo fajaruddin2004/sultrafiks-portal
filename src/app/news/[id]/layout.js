@@ -6,33 +6,47 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
     try {
-        // 🔥 INI KUNCI UTAMANYA: Wajib di-await untuk Next.js terbaru!
-        const resolvedParams = await params; 
-        const slugParam = resolvedParams.slug;
+        const resolvedParams = await params;
+        const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
         
-        // Tarik data langsung dari Supabase Client yang sudah stabil
-        const { data: allNews } = await supabase.from('news').select('title, content, image_url');
+        // 🔥 TARIK 200 BERITA TERBARU SAJA AGAR LOADINGNYA KILAT!
+        const { data: allNews } = await supabase
+            .from('news')
+            .select('title, content, image_url')
+            .order('created_at', { ascending: false })
+            .limit(200);
         
         let article = null;
+        
         if (allNews && allNews.length > 0) {
-            // Looping pencarian slug yang lebih akurat
+            // TAHAP 1: Cari pencocokan judul persis 100%
             for (const item of allNews) {
                 if (item.title) {
-                    const itemSlug = item.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                    const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                     if (itemSlug === slugParam) {
                         article = item;
                         break;
                     }
                 }
             }
+
+            // TAHAP 2: JURUS SAPU JAGAT (Kalau judul kepanjangan, kita cari pakai potongan kata)
+            if (!article) {
+                const shortSlug = slugParam.substring(0, 30); // Ambil 30 huruf pertama saja
+                article = allNews.find(item => {
+                    if (!item.title) return false;
+                    const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                    return itemSlug.includes(shortSlug);
+                });
+            }
         }
 
         const baseUrl = 'https://www.sultrafiks.com';
 
-        // JIKA GAGAL (Server Lemot/Slug Salah), JANGAN TAMPILKAN "TIDAK DITEMUKAN"
+        // JIKA BERITA BENAR-BENAR TERHAPUS DARI DATABASE
         if (!article) {
             return {
-                title: 'SultraFiks - Portal Berita Terkini Sulawesi Tenggara',
+                title: 'SultraFiks - Portal Berita Terkini',
                 description: 'Dapatkan informasi terbaru, terakurat, dan terpercaya hari ini.',
                 openGraph: {
                     images: [`${baseUrl}/placeholder-news.jpg`]
@@ -40,12 +54,16 @@ export async function generateMetadata({ params }) {
             };
         }
 
-        // BERHASIL DITEMUKAN!
+        // BERHASIL KETEMU! SIAPKAN DESKRIPSI & GAMBAR
         const plainText = article.content 
             ? article.content.replace(/<[^>]+>/g, '').substring(0, 150) + '...' 
             : 'Baca informasi selengkapnya di portal berita terdepan SultraFiks.';
 
-        const imageUrl = article.image_url || `${baseUrl}/placeholder-news.jpg`;
+        // Pastikan link gambar tidak error
+        const imageUrl = article.image_url && article.image_url.startsWith('http') 
+            ? article.image_url 
+            : `${baseUrl}/placeholder-news.jpg`;
+            
         const articleUrl = `${baseUrl}/news/${slugParam}`;
 
         return {
@@ -73,11 +91,13 @@ export async function generateMetadata({ params }) {
                 title: article.title,
                 description: plainText,
                 images: [imageUrl],
+            },
+            alternates: {
+                canonical: articleUrl,
             }
         };
     } catch (err) {
-        // Fallback terakhir jika sistem down
-        return { title: 'SultraFiks - Berita Terkini' };
+        return { title: 'SultraFiks - Berita Terkini Sulawesi Tenggara' };
     }
 }
 
