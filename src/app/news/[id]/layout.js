@@ -1,4 +1,6 @@
-// 🔥 JURUS TEMBAK LANGSUNG ANTI VERCEL ERROR 🔥
+import { supabase } from '@/lib/supabase';
+
+// Mematikan cache agar Vercel selalu narik gambar terbaru
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
@@ -7,69 +9,60 @@ export async function generateMetadata({ params }) {
         const resolvedParams = await params;
         const slugParam = decodeURIComponent(resolvedParams.slug).toLowerCase();
 
-        // =================================================================
-        // ⚠️ BOS FAJARUDDIN: GANTI 2 BARIS INI DENGAN DATA SUPABASE BOS ⚠️
-        // =================================================================
-        const SUPABASE_URL = "https://swyafiunqihshjgtlkmd.supabase.co"; // Ganti dengan URL Supabase Bos
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3eWFmaXVucWloc2hqZ3Rsa21kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3NTQ5MjYsImV4cCI6MjA4NzMzMDkyNn0.lKVnhCeeF2HYn5ByPHB05b_cGT4vx7ZrYwsSWubrTcI"; // Ganti dengan Kunci Anon Bos
-        // =================================================================
+        // KITA PAKAI JALUR RESMI (TANPA MANUAL URL/KEY)
+        // Ambil 500 berita terbaru untuk dicocokkan
+        const { data: allNews, error } = await supabase
+            .from('news')
+            .select('title, content, image_url')
+            .order('created_at', { ascending: false })
+            .limit(500);
 
-        // Tembak database langsung pakai jalur REST API murni (Pasti Tembus Vercel)
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/news?select=title,content,image_url`, {
-            headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            cache: 'no-store'
-        });
+        if (error) throw error;
 
-        const allNews = await res.json();
-        
         let article = null;
-        if (Array.isArray(allNews) && allNews.length > 0) {
-            // Pencarian super canggih: Cari kemiripan slug
-            const shortSlug = slugParam.substring(0, 30); // Ambil 30 huruf pertama saja
-            
+
+        if (allNews && allNews.length > 0) {
+            // Pencarian kecocokan judul yang presisi
             article = allNews.find(item => {
                 if (!item.title) return false;
                 const itemSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-                return itemSlug.includes(shortSlug) || slugParam.includes(itemSlug.substring(0, 30));
+                return itemSlug === slugParam;
             });
         }
 
         const baseUrl = 'https://www.sultrafiks.com';
 
-        // JIKA GAGAL KONEKSI / BERITA DIHAPUS
+        // JIKA GAGAL (Teks ini saya ganti biar Bos tahu kalau masih error)
         if (!article) {
             return {
                 title: 'SultraFiks - Portal Berita Terkini',
-                description: 'Media siber terdepan di Sulawesi Tenggara.',
-                openGraph: { images: [`${baseUrl}/placeholder-news.jpg`] }
+                description: 'Baca berita selengkapnya di website resmi SultraFiks.',
             };
         }
 
-        // BERHASIL DITARIK DARI DATABASE!
+        // BERHASIL KETEMU! Siapkan Gambar dan Teks
         const plainText = article.content 
-            ? article.content.replace(/<[^>]+>/g, '').substring(0, 140) + '...' 
-            : 'Baca informasi selengkapnya hanya di SultraFiks.';
+            ? article.content.replace(/<[^>]+>/g, '').substring(0, 130) + '...' 
+            : 'Baca informasi selengkapnya di portal berita terdepan SultraFiks.';
 
-        // Cek gambar apakah ada
         const imageUrl = article.image_url && article.image_url.startsWith('http') 
             ? article.image_url 
             : `${baseUrl}/placeholder-news.jpg`;
+            
+        const articleUrl = `${baseUrl}/news/${slugParam}`;
 
         return {
-            title: `${article.title} - SultraFiks`,
+            title: article.title,
             description: plainText,
             openGraph: {
                 title: article.title,
                 description: plainText,
-                url: `${baseUrl}/news/${slugParam}`,
+                url: articleUrl,
                 siteName: 'SultraFiks',
                 images: [
                     {
                         url: imageUrl,
-                        secureUrl: imageUrl,
+                        secureUrl: imageUrl, // Wajib untuk WhatsApp
                         width: 1200,
                         height: 630,
                         alt: article.title,
@@ -86,7 +79,7 @@ export async function generateMetadata({ params }) {
             }
         };
     } catch (err) {
-        return { title: 'SultraFiks - Berita Terkini' };
+        return { title: 'SultraFiks - Sedang Memuat Database...' };
     }
 }
 
