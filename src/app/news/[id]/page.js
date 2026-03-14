@@ -84,7 +84,7 @@ export default function NewsDetail() {
     const [editorData, setEditorData] = useState({ name: 'Admin SultraFiks', avatar: null });
     const [showRedaksi, setShowRedaksi] = useState(false);
 
-    const [fontSize, setFontSize] = useState(15); 
+    const [fontSize, setFontSize] = useState(14); 
     const [isSaved, setIsSaved] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -100,6 +100,8 @@ export default function NewsDetail() {
     const [isThinking, setIsThinking] = useState(false); 
     const [isSpeaking, setIsSpeaking] = useState(false); 
     const [isShareModalOpen, setIsShareModalOpen] = useState(false); 
+    const [isFabOpen, setIsFabOpen] = useState(false); 
+    
     const [chatMessages, setChatMessages] = useState([{ role: 'ai', text: 'Halo! Saya AI SultraFiks. Ada yang ingin Anda tanyakan tentang berita ini?' }]);
     const [userInput, setUserInput] = useState("");
     
@@ -209,7 +211,7 @@ export default function NewsDetail() {
             const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
             if (newsData) setLikesCount(newsData.likes_count || 0);
             
-            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
+            const { data: commentsData = [] } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
         fetchInteractions();
@@ -279,7 +281,6 @@ export default function NewsDetail() {
         } catch (error) { showToast("Gagal mengirim komentar. Coba lagi."); } finally { setIsSubmitting(false); }
     };
 
-    // 🔥 KODINGAN TOMBOL SHARE ANTI-CACHE SUDAH SAYA MASUKKAN KEMBALI 🔥
     const handleShare = async (platform) => {
         const cleanUrl = window.location.origin + window.location.pathname;
         const uniqueUrl = `${cleanUrl}?v=${Date.now()}`; 
@@ -341,8 +342,36 @@ export default function NewsDetail() {
 
     const smartTags = ['Kendari', 'SultraFiks', article.category, 'Berita Terkini'];
 
+    const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        headline: article?.title,
+        image: [
+            article?.image_url || 'https://www.sultrafiks.com/logo.png'
+        ],
+        datePublished: article?.created_at,
+        author: [{
+            '@type': 'Person',
+            name: authorData.name,
+            url: `https://www.sultrafiks.com/author/${encodeURIComponent(authorData.name)}`
+        }],
+        publisher: {
+            '@type': 'Organization',
+            name: 'SultraFiks',
+            logo: {
+                '@type': 'ImageObject',
+                url: 'https://www.sultrafiks.com/logo.png'
+            }
+        }
+    };
+
     return (
         <div className={`min-h-screen font-sans pb-24 md:pb-0 relative transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19] text-white' : 'bg-white text-slate-900'}`}>
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
+            
             <motion.div className="fixed top-0 left-0 right-0 h-1 md:h-1.5 bg-blue-600 origin-left z-[60]" style={{ scaleX }} />
 
             <AnimatePresence>
@@ -393,24 +422,24 @@ export default function NewsDetail() {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between pb-2 md:pb-3 pt-1 px-1">
-                    <div className="overflow-x-auto no-scrollbar flex gap-3 md:gap-5 items-center w-full">
-                        <Link href="/" className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
-                            <div className={`w-9 h-9 md:w-12 md:h-12 rounded-[10px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600'}`}>
-                                <HomeIcon className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform`} />
+                <div className="flex items-center justify-between pb-1.5 md:pb-3 pt-1 px-1">
+                    <div className="overflow-x-auto no-scrollbar flex gap-2 md:gap-5 items-center w-full">
+                        <Link href="/" className="flex flex-col items-center gap-1 md:gap-1.5 group shrink-0 px-1 md:px-2">
+                            <div className={`w-7 h-7 md:w-12 md:h-12 rounded-[8px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600'}`}>
+                                <HomeIcon className={`w-3.5 h-3.5 md:w-5 md:h-5 relative z-10 transition-transform`} />
                             </div>
-                            <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800'}`}>Home</span>
+                            <span className={`text-[9px] md:text-xs font-bold tracking-wide transition-colors ${isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800'}`}>Home</span>
                         </Link>
                         {categories.map((cat) => {
                         const config = categoryConfig[cat];
                         const IconComponent = config.icon;
                         const isActive = article?.category === cat; 
                         return (
-                            <Link key={cat} href={`/?cat=${cat}`} className="flex flex-col items-center gap-1.5 group shrink-0 px-1 md:px-2">
-                            <div className={`w-9 h-9 md:w-12 md:h-12 rounded-[10px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
-                                <IconComponent className={`w-4 h-4 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
+                            <Link key={cat} href={`/?cat=${cat}`} className="flex flex-col items-center gap-1 md:gap-1.5 group shrink-0 px-1 md:px-2">
+                            <div className={`w-7 h-7 md:w-12 md:h-12 rounded-[8px] md:rounded-[12px] flex items-center justify-center transition-all duration-300 relative overflow-hidden ${isActive ? `bg-gradient-to-tr ${config.color} text-white shadow-md border-0 scale-105` : (isDarkMode ? 'bg-slate-800 text-slate-400 border-slate-700 border hover:bg-slate-700 hover:text-white' : 'bg-slate-50 text-slate-500 border-slate-200 border hover:bg-white hover:text-blue-600')}`}>
+                                <IconComponent className={`w-3.5 h-3.5 md:w-5 md:h-5 relative z-10 transition-transform ${isActive ? 'scale-110' : ''}`} />
                             </div>
-                            <span className={`text-[10px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
+                            <span className={`text-[9px] md:text-xs font-bold tracking-wide transition-colors ${isActive ? 'text-blue-600 dark:text-blue-400' : (isDarkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-800')}`}>{cat}</span>
                             </Link>
                         )
                         })}
@@ -443,7 +472,7 @@ export default function NewsDetail() {
                                         <BadgeCheck className="w-4 h-4 md:w-5 md:h-5 text-blue-600 fill-white" />
                                     </div>
                                     <p className={`text-[9px] md:text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                                        FIXSEKALINYAMI
+                                        FIXSEKALIMI
                                     </p>
                                     <p className={`text-[9px] md:text-[11px] font-bold flex items-center flex-wrap gap-1 mt-1 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                                         <Clock className="w-3 h-3 text-blue-500"/>
@@ -472,7 +501,7 @@ export default function NewsDetail() {
 
                         <div className="mb-4 w-full flex flex-col items-center group relative">
                             {article?.image_url ? (
-                                <div className="relative w-full flex justify-center bg-transparent">
+                                <div className="relative w-full flex justify-center bg-transparent z-10">
                                     <img 
                                         src={article.image_url} 
                                         className="w-full h-auto max-h-[700px] object-contain rounded-xl md:rounded-2xl shadow-sm" 
@@ -496,20 +525,16 @@ export default function NewsDetail() {
                                 </div>
                             )}
                         </div>
-                        
-                        {/* 🔥 BAGIAN CAPTION & SUMBER (SUDAH DIPERBAIKI SESUAI PERMINTAAN) 🔥 */}
+
                         <div className={`flex flex-col md:flex-row md:justify-between items-start md:items-start mb-4 md:mb-5 px-1 md:px-2 gap-2 md:gap-4 ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                            {/* Ukuran Caption Diperbesar (text-xs md:text-sm) */}
-                            <p className="text-left order-2 md:order-1 text-xs md:text-sm italic leading-relaxed">
+                            <p className="text-left order-2 md:order-1 text-xs md:text-sm italic text-slate-500 leading-relaxed">
                                 {article?.photo_caption || "Ilustrasi berita."}
                             </p>
                             
-                            {/* Tulisan Sumber diganti Ikon Gambar dan dikecilkan */}
                             {article?.photo_source && article.photo_source.trim() !== '' && (
                                 <div className="flex items-center gap-1.5 order-1 md:order-2 opacity-70 shrink-0">
-                                    <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" /> 
                                     <p className="font-bold uppercase tracking-widest text-[8px] md:text-[9px]">
-                                        {article.photo_source}
+                                        foto : {article.photo_source}
                                     </p>
                                 </div>
                             )}
@@ -528,17 +553,23 @@ export default function NewsDetail() {
                                 const trimmed = p.trim();
                                 const isQuote = trimmed.startsWith('>') || trimmed.startsWith('"') || trimmed.startsWith('“') || trimmed.startsWith('‘') || trimmed.startsWith('”');
 
-                                // 🔥 KODINGAN KUTIPAN BARU DENGAN SHADOW DI KANAN 🔥
                                 if (isQuote) {
                                     let cleanHtml = html.replace(/^[>\"“‘”]\s*/, '').replace(/[\"”’]\s*$/, '');
                                     
                                     return (
-                                        <div key={i} className="my-6 md:my-8 relative py-4 px-2">
-                                            {/* Bayangan Watermark Kutipan (Opacity 30%, Posisi Kanan Teks) */}
-                                            <Quote className={`absolute top-1/2 -translate-y-1/2 right-2 w-16 h-16 md:w-24 md:h-24 z-0 opacity-30 ${isDarkMode ? 'text-slate-600 fill-slate-600' : 'text-slate-400 fill-slate-300'}`} />
-                                            
-                                            {/* Teks Kutipan Tanpa Garis Kiri & Tanda Kutip Otomatis */}
-                                            <p className={`italic font-semibold leading-relaxed relative z-10 ${isDarkMode ? 'text-slate-300' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: cleanHtml }} />
+                                        <div key={i} className={`my-4 md:my-6 pl-4 md:pl-5 pr-3 py-3 md:py-4 border-l-[4px] border-blue-600 rounded-r-xl shadow-sm overflow-hidden ${isDarkMode ? 'bg-slate-800/80' : 'bg-blue-50/80'}`}>
+                                            <div className="flex items-center gap-3 md:gap-4 relative z-10">
+                                                <p className={`italic font-semibold leading-relaxed m-0 flex-1 text-justify ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`} style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanHtml }} />
+                                                
+                                                <motion.div 
+                                                    animate={{ y: [0, -4, 0] }} 
+                                                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                                                    className="relative flex-shrink-0 flex items-center justify-center mr-1 md:mr-2"
+                                                >
+                                                    <div className="absolute inset-0 bg-blue-500/30 blur-[10px] md:blur-[12px] rounded-full w-full h-full scale-150"></div>
+                                                    <Quote className={`w-6 h-6 md:w-8 md:h-8 z-10 opacity-25 drop-shadow-md ${isDarkMode ? 'text-blue-400 fill-blue-400' : 'text-blue-600 fill-blue-600'}`} />
+                                                </motion.div>
+                                            </div>
                                         </div>
                                     );
                                 }
@@ -727,7 +758,7 @@ export default function NewsDetail() {
                                                         <Clock className="w-2.5 h-2.5 md:w-3 md:h-3"/> {timeAgo(item.created_at)}
                                                     </span>
                                                 </div>
-                                                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-100'}`}>
+                                                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
                                                     {item.image_url ? (
                                                         <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Thumbnail" />
                                                     ) : (
@@ -755,26 +786,22 @@ export default function NewsDetail() {
                             <p className="text-slate-400 text-[11px] md:text-sm leading-relaxed max-w-xs mx-auto md:mx-0">Media siber terdepan di Sulawesi Tenggara yang menyajikan informasi cepat, akurat, dan terpercaya.</p>
                         </div>
 
-                        <div className="flex flex-col items-center md:items-start">
+                        <div>
                             <h4 className="font-black text-sm md:text-lg mb-4 md:mb-6 border-b border-slate-800 pb-2 uppercase tracking-widest text-blue-500 italic inline-block md:block">
                                 Official Sosmed
                             </h4>
-                            <div className="flex flex-col gap-3">
-                                <a href="#" className="flex items-center gap-3 group w-fit">
-                                    <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Facebook className="w-4 h-4 fill-white" /></div>
-                                    <span className="text-slate-400 text-xs font-bold group-hover:text-[#1877F2] transition-colors">Facebook SultraFiks</span>
+                            <div className="flex justify-center md:justify-start gap-4">
+                                <a href="https://facebook.com/sultrafiks" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white shadow-md hover:scale-110 transition-transform"><Facebook className="w-5 h-5 fill-white" /></div>
                                 </a>
-                                <a href="#" className="flex items-center gap-3 group w-fit">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Instagram className="w-4 h-4" /></div>
-                                    <span className="text-slate-400 text-xs font-bold group-hover:text-pink-500 transition-colors">Instagram SultraFiks</span>
+                                <a href="https://instagram.com/sultrafiks" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-md hover:scale-110 transition-transform"><Instagram className="w-5 h-5" /></div>
                                 </a>
-                                <a href="#" className="flex items-center gap-3 group w-fit">
-                                    <div className="w-8 h-8 rounded-full bg-[#FF0000] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Youtube className="w-4 h-4 fill-white" /></div>
-                                    <span className="text-slate-400 text-xs font-bold group-hover:text-[#FF0000] transition-colors">YouTube SultraFiks</span>
+                                <a href="https://youtube.com/sultrafiks" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-[#FF0000] flex items-center justify-center text-white shadow-md hover:scale-110 transition-transform"><Youtube className="w-5 h-5 fill-white" /></div>
                                 </a>
-                                <a href="#" className="flex items-center gap-3 group w-fit">
-                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black shadow-md group-hover:scale-110 transition-transform"><TikTokIcon className="w-4 h-4" /></div>
-                                    <span className="text-slate-400 text-xs font-bold group-hover:text-white transition-colors">TikTok SultraFiks</span>
+                                <a href="https://tiktok.com/@sultrafiks" target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-black shadow-md hover:scale-110 transition-transform"><TikTokIcon className="w-5 h-5" /></div>
                                 </a>
                             </div>
                         </div>
@@ -794,29 +821,75 @@ export default function NewsDetail() {
                 </div>
             </footer>
 
-            <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[90] backdrop-blur-xl border-t px-6 py-3 pb-6 flex justify-between items-center shadow-[0_-10px_20px_rgba(0,0,0,0.05)] transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19]/90 border-slate-800' : 'bg-white/90 border-slate-100'}`}>
-                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleLikeClick}>
-                    <Heart className={`w-5 h-5 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-slate-400 group-hover:text-red-500'}`} />
-                    <span className={`text-[10px] font-bold ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{likesCount}</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={scrollToComments}>
-                    <MessageCircle className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-500">{comments.length}</span>
-                </div>
-                
-                <button onClick={() => setIsAIChatOpen(true)} className={`w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg -mt-10 border-4 active:scale-95 transition-transform ${isDarkMode ? 'border-[#0B0F19]' : 'border-white'}`}>
-                    <Bot className="w-6 h-6" />
-                </button>
-                
-                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={handleBookmark}>
-                    <Bookmark className={`w-5 h-5 transition-colors ${isSaved ? 'fill-yellow-500 text-yellow-500' : 'text-slate-400 group-hover:text-blue-500'}`} />
-                    <span className={`text-[10px] font-bold transition-colors ${isSaved ? 'text-yellow-500' : 'text-slate-500 group-hover:text-blue-500'}`}>Simpan</span>
-                </div>
+            {/* 🔥 NAVBAR MOBILE MODEL POP-UP 3D (FAB) - DIPERBARUI DENGAN UKURAN LEBIH KECIL DAN ANIMASI DENYUT 🔥 */}
+            <div className="md:hidden fixed bottom-6 right-4 z-[95] flex flex-col items-end">
+                <AnimatePresence>
+                    {isFabOpen && (
+                        <>
+                            {/* Overlay Blur di Belakang Pop-up */}
+                            <motion.div 
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[-1]"
+                                onClick={() => setIsFabOpen(false)}
+                            />
 
-                <div className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => setIsShareModalOpen(true)}>
-                    <Share2 className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-500 transition-colors">Share</span>
-                </div>
+                            {/* Menu Tombol 3D */}
+                            <motion.div 
+                                initial={{ opacity: 0, y: 40, scale: 0.5, rotateX: -60, transformPerspective: 800 }}
+                                animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+                                exit={{ opacity: 0, y: 40, scale: 0.5, rotateX: -60 }}
+                                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                className="flex flex-col items-end gap-3.5 mb-3.5 origin-bottom"
+                            >
+                                <motion.button onClick={() => { setIsShareModalOpen(true); setIsFabOpen(false); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-3 group">
+                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`}>Share</span>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><Share2 className="w-5 h-5 text-blue-500" /></div>
+                                </motion.button>
+                                
+                                <motion.button onClick={() => { handleBookmark(); setIsFabOpen(false); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-3 group">
+                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`}>{isSaved ? 'Tersimpan' : 'Simpan'}</span>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><Bookmark className={`w-5 h-5 ${isSaved ? 'fill-yellow-500 text-yellow-500' : 'text-blue-500'}`} /></div>
+                                </motion.button>
+                                
+                                <motion.button onClick={() => { setIsAIChatOpen(true); setIsFabOpen(false); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-3 group">
+                                    <span className="text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white">Tanya AI</span>
+                                    <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-gradient-to-tr from-blue-600 to-indigo-600"><Bot className="w-5 h-5 text-white" /></div>
+                                </motion.button>
+
+                                <motion.button onClick={() => { scrollToComments(); setIsFabOpen(false); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-3 group">
+                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`}>{comments.length} Komentar</span>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><MessageCircle className="w-5 h-5 text-blue-500" /></div>
+                                </motion.button>
+                                
+                                <motion.button onClick={() => { handleLikeClick(); setIsFabOpen(false); }} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-3 group">
+                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg transition-colors ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'}`}>{likesCount} Suka</span>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border transition-colors ${isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}><Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-blue-500'}`} /></div>
+                                </motion.button>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+
+                {/* Tombol Utama (Petir SultraFiks) - DIPERBARUI: UKURAN LEBIH KECIL DAN ANIMASI DENYUT */}
+                <motion.button
+                    whileTap={{ scale: 0.8 }}
+                    onClick={() => setIsFabOpen(!isFabOpen)}
+                    animate={{ 
+                        rotate: isFabOpen ? 90 : 0,
+                        scale: isFabOpen ? 1 : [1, 1.06, 1], // Animasi denyut saat tertutup
+                        boxShadow: isFabOpen 
+                            ? "0 0 0 0px rgba(37,99,235,0)" 
+                            : ["0 5px 15px rgba(37,99,235,0.3)", "0 10px 25px rgba(37,99,235,0.5)", "0 5px 15px rgba(37,99,235,0.3)"] // Animasi pendaran saat tertutup
+                    }}
+                    transition={{ 
+                        rotate: { type: "spring", stiffness: 260, damping: 20 },
+                        scale: { repeat: Infinity, duration: 2, ease: "easeInOut" }, // Looping denyut
+                        boxShadow: { repeat: Infinity, duration: 2, ease: "easeInOut" } // Looping pendaran
+                    }}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 ${isFabOpen ? 'bg-slate-800 border-slate-700' : 'bg-blue-600 border-white dark:border-[#0B0F19]'}`}
+                >
+                    {isFabOpen ? <X className="w-5 h-5 text-white" /> : <Zap className="w-5 h-5 fill-white text-white" />}
+                </motion.button>
             </div>
 
             <AnimatePresence>
