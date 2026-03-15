@@ -12,6 +12,7 @@
     "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
+    "@vercel/og": "^0.11.1",
     "framer-motion": "^12.34.0",
     "groq-sdk": "^0.37.0",
     "lucide-react": "^0.563.0",

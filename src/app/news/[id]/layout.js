@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-// MANTRA SAKTI UNTUK MENGIRIM KTP BERITA KE BOT WHATSAPP & FACEBOOK
+// MANTRA SAKTI UNTUK MENGIRIM KTP BERITA BER-WATERMARK KE BOT WHATSAPP
 export async function generateMetadata({ params }) {
     // 1. Suruh params menunggu (Wajib di Next.js terbaru)
     const resolvedParams = await params;
@@ -15,7 +15,6 @@ export async function generateMetadata({ params }) {
 
     if (allNews && allNews.length > 0) {
         // 🔥 SISTEM PENCARIAN ANTI GAGAL (Fuzzy Match) 🔥
-        // Kita hilangkan semua tanda hubung dan spasi, lalu kita cocokkan huruf dan angkanya saja!
         const cleanSlugForMatch = rawSlug.replace(/[^a-z0-9]+/g, '');
 
         currentArticle = allNews.find(item => {
@@ -28,8 +27,12 @@ export async function generateMetadata({ params }) {
     }
 
     // Jika entah kenapa masih tidak ketemu, tampilkan KTP darurat
+    const productionUrl = 'https://www.sultrafiks.com';
+    const cleanProductionUrl = productionUrl.replace(/\/$/, ''); // Hilangkan garis miring di akhir jika ada
+    
     if (!currentArticle) {
         return { 
+            metadataBase: new URL(cleanProductionUrl),
             title: 'SultraFiks - Portal Berita Terkini',
             description: 'Media siber terdepan di Sulawesi Tenggara.',
         };
@@ -40,13 +43,20 @@ export async function generateMetadata({ params }) {
         ? currentArticle.content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...'
         : 'Baca berita selengkapnya di portal SultraFiks.';
 
-    // 🔥 WAJIB UNTUK WHATSAPP: GUNAKAN LINK GAMBAR MENTAHAN/ASLI DARI DATABASE 🔥
-    // Jangan gunakan /_next/image karena robot WhatsApp sering memblokirnya.
-    const waImageUrl = currentArticle.image_url || 'https://www.sultrafiks.com/logo.png';
-    const articleUrl = `https://www.sultrafiks.com/news/${rawSlug}`;
+    // 5. AMBIL LINK GAMBAR MENTAHAN/ASLI (Untuk disetor ke mesin stempel)
+    const rawImageUrl = currentArticle.image_url || `${cleanProductionUrl}/logo.png`;
+    
+    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL (TAPI WA BELUM LIHAT LINK INI) 🔥
+    // Kita buat URL ke api/og dengan parameter imageUrl yang sudah disandikan
+    const directOgImageUrl = `${cleanProductionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}`;
+
+    // 🔥 WAJIB UNTUK WHATSAPP: KITA KEMBALIKAN directOgImageUrl SEBAGAI OG_IMAGE UTAMA 🔥
+    // WhatsApp akan menarik data ke api/og, mesin stempel akan jalan di server, dan mengembalikan PNG baru.
+    // Tidak ada _next/image lagi yang diblokir WA. Keberhasilan 100%!
+    const articleUrl = `${cleanProductionUrl}/news/${rawSlug}`;
 
     return {
-        metadataBase: new URL('https://www.sultrafiks.com'),
+        metadataBase: new URL(cleanProductionUrl),
         title: `${currentArticle.title} - SultraFiks`,
         description: cleanDescription,
         openGraph: {
@@ -56,7 +66,7 @@ export async function generateMetadata({ params }) {
             siteName: 'SultraFiks',
             images: [
                 {
-                    url: waImageUrl, // <-- Kunci keberhasilan gambar WA ada di sini
+                    url: directOgImageUrl, // <-- Kunci keberhasilan Thumbnail Ber-watermark ada di sini
                     width: 1200,
                     height: 630,
                     alt: currentArticle.title,
@@ -69,7 +79,7 @@ export async function generateMetadata({ params }) {
             card: 'summary_large_image',
             title: currentArticle.title,
             description: cleanDescription,
-            images: [waImageUrl],
+            images: [directOgImageUrl],
         },
     };
 }
