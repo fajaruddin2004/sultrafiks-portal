@@ -1,18 +1,25 @@
 import { supabase } from '@/lib/supabase';
 
-// MANTRA SAKTI KTP BERITA UNTUK WHATSAPP (VERSI WATERMARK OTOMATIS)
+// MANTRA SAKTI KTP BERITA UNTUK WHATSAPP (VERSI WATERMARK OTOMATIS BERCAHAYA)
 export async function generateMetadata({ params }) {
+    // 1. Suruh params menunggu (Wajib di Next.js terbaru)
     const resolvedParams = await params;
+    
+    // 2. Ambil ID/Slug dari link
     const rawSlug = decodeURIComponent(String(resolvedParams.id || resolvedParams.slug)).toLowerCase();
     
+    // 3. Ambil data berita dari Supabase
     const { data: allNews } = await supabase.from('news').select('id, title, content, image_url').order('created_at', { ascending: false });
 
     let currentArticle = null;
+
     if (allNews && allNews.length > 0) {
+        // 🔥 SISTEM PENCARIAN ANTI GAGAL (Fuzzy Match) 🔥
         const cleanSlugForMatch = rawSlug.replace(/[^a-z0-9]+/g, '');
+
         currentArticle = allNews.find(item => {
             if (!item.title) return false;
-            if (item.id === rawSlug) return true; 
+            if (item.id === rawSlug) return true; // Cek ID asli
             
             const cleanTitleForMatch = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '');
             return cleanTitleForMatch === cleanSlugForMatch;
@@ -20,30 +27,35 @@ export async function generateMetadata({ params }) {
     }
 
     const productionUrl = 'https://www.sultrafiks.com';
-
+    const cleanProductionUrl = productionUrl.replace(/\/$/, ''); // Hilangkan garis miring di akhir jika ada
+    
+    // Jika entah kenapa masih tidak ketemu, tampilkan KTP darurat
     if (!currentArticle) {
         return { 
-            metadataBase: new URL(productionUrl),
+            metadataBase: new URL(cleanProductionUrl),
             title: 'SultraFiks - Portal Berita Terkini',
             description: 'Media siber terdepan di Sulawesi Tenggara.',
         };
     }
 
+    // 4. Bersihkan deskripsi dari tag HTML (Ambil 150 huruf pertama)
     const cleanDescription = currentArticle.content
-        ? currentArticle.content.replace(/<[^>]*>?/gm, '').substring(0, 140) + '...'
+        ? currentArticle.content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...'
         : 'Baca berita selengkapnya di portal SultraFiks.';
 
-    // 1. Ambil Foto Asli
-    const rawImageUrl = currentArticle.image_url || `${productionUrl}/logo.png`;
+    // 5. AMBIL LINK GAMBAR MENTAHAN/ASLI (Untuk disetor ke mesin stempel)
+    const rawImageUrl = currentArticle.image_url || `${cleanProductionUrl}/logo.png`;
     
-    // 🔥 TRIK RAHASIA UNTUK WHATSAPP 🔥
-    // Kita tambahkan &v=waktu dan &ext=.png di akhir link agar WA mengira ini file gambar asli yang baru!
-    const watermarkedImageUrl = `${productionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}&v=${Date.now()}&ext=.png`;
-    
-    const articleUrl = `${productionUrl}/news/${rawSlug}`;
+    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL (TAPI WA BELUM LIHAT LINK INI) 🔥
+    const watermarkedImageUrl = `${cleanProductionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}`;
+
+    // 🔥 WAJIB UNTUK WHATSAPP: KITA KEMBALIKAN watermarkedImageUrl SEBAGAI OG_IMAGE UTAMA 🔥
+    // WhatsApp akan menarik data ke api/og, mesin stempel akan jalan di server, dan mengembalikan PNG berstempel.
+    // Tidak ada _next/image lagi yang diblokir WA. Keberhasilan 100%!
+    const articleUrl = `${cleanProductionUrl}/news/${rawSlug}`;
 
     return {
-        metadataBase: new URL(productionUrl),
+        metadataBase: new URL(cleanProductionUrl),
         title: `${currentArticle.title} - SultraFiks`,
         description: cleanDescription,
         openGraph: {
@@ -53,11 +65,11 @@ export async function generateMetadata({ params }) {
             siteName: 'SultraFiks',
             images: [
                 {
-                    url: watermarkedImageUrl, // Setor gambar stempel ke WA
+                    url: watermarkedImageUrl, // <-- Kunci keberhasilan Thumbnail Ber-watermark ada di sini
                     width: 1200,
                     height: 630,
                     alt: currentArticle.title,
-                    type: 'image/png', 
+                    type: 'image/png', // Panduan paksa untuk bot WA
                 },
             ],
             locale: 'id_ID',
