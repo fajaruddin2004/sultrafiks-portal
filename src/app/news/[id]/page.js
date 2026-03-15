@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
+import Image from 'next/image'; // 🔥 MEMANGGIL MESIN GILING GAMBAR OTOMATIS WEBP 🔥
 import { supabase } from '@/lib/supabase';
 import { useNews } from '@/context/NewsContext'; 
 import { useParams, useRouter } from 'next/navigation';
@@ -211,7 +211,7 @@ export default function NewsDetail() {
             const { data: newsData } = await supabase.from('news').select('likes_count').eq('id', articleId).single();
             if (newsData) setLikesCount(newsData.likes_count || 0);
             
-            const { data: commentsData = [] } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
+            const { data: commentsData } = await supabase.from('comments').select('*').eq('news_id', articleId).order('created_at', { ascending: false });
             if (commentsData) setComments(commentsData);
         };
         fetchInteractions();
@@ -342,36 +342,10 @@ export default function NewsDetail() {
 
     const smartTags = ['Kendari', 'SultraFiks', article.category, 'Berita Terkini'];
 
-    const jsonLd = {
-        '@context': 'https://schema.org',
-        '@type': 'NewsArticle',
-        headline: article?.title,
-        image: [
-            article?.image_url || 'https://www.sultrafiks.com/logo.png'
-        ],
-        datePublished: article?.created_at,
-        author: [{
-            '@type': 'Person',
-            name: authorData.name,
-            url: `https://www.sultrafiks.com/author/${encodeURIComponent(authorData.name)}`
-        }],
-        publisher: {
-            '@type': 'Organization',
-            name: 'SultraFiks',
-            logo: {
-                '@type': 'ImageObject',
-                url: 'https://www.sultrafiks.com/logo.png'
-            }
-        }
-    };
+    // Schema Markup dipindah ke layout.js agar lebih aman (TIDAK DIPAKAI DI SINI LAGI)
 
     return (
         <div className={`min-h-screen font-sans pb-24 md:pb-0 relative transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19] text-white' : 'bg-white text-slate-900'}`}>
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-            />
-            
             <motion.div className="fixed top-0 left-0 right-0 h-1 md:h-1.5 bg-blue-600 origin-left z-[60]" style={{ scaleX }} />
 
             <AnimatePresence>
@@ -500,12 +474,16 @@ export default function NewsDetail() {
                         </div>
 
                         <div className="mb-4 w-full flex flex-col items-center group relative">
+                            {/* 🔥 MESIN GILING DI AKTIFKAN: UBAH IMG JADI IMAGE DARI NEXT.JS 🔥 */}
                             {article?.image_url ? (
-                                <div className="relative w-full flex justify-center bg-transparent z-10">
-                                    <img 
+                                <div className="relative w-full h-[300px] md:h-[500px] flex justify-center bg-transparent z-10 rounded-xl md:rounded-2xl overflow-hidden shadow-sm">
+                                    <Image 
                                         src={article.image_url} 
-                                        className="w-full h-auto max-h-[700px] object-contain rounded-xl md:rounded-2xl shadow-sm" 
-                                        alt={article?.title} 
+                                        alt={article?.title || 'Gambar Berita'} 
+                                        fill
+                                        priority
+                                        sizes="(max-width: 768px) 100vw, 800px"
+                                        className="object-contain" 
                                     />
                                     {(!article?.photo_source || article.photo_source.trim() === '') && (
                                         <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1.5 pointer-events-none opacity-60 drop-shadow-2xl z-20">
@@ -599,9 +577,9 @@ export default function NewsDetail() {
                                     >
                                         <div className={`mt-3 p-3 md:p-4 rounded-xl border flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center shadow-sm ${isDarkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                                             <Link href={`/author/${encodeURIComponent(authorData.name)}`} className="flex items-center gap-2.5 md:gap-3 group cursor-pointer w-full sm:w-auto">
-                                                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-blue-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
+                                                <div className={`relative w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-blue-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
                                                     {authorData.avatar ? (
-                                                        <img src={authorData.avatar} alt={authorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                        <Image src={authorData.avatar} alt={authorData.name} fill className="object-cover group-hover:scale-110 transition-transform duration-300" sizes="40px" />
                                                     ) : (
                                                         <User className={`w-5 h-5 ${isDarkMode ? 'text-slate-400' : 'text-slate-400'}`} />
                                                     )}
@@ -617,9 +595,9 @@ export default function NewsDetail() {
                                             <div className={`hidden sm:block w-px h-8 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-200'}`}></div>
                                             
                                             <Link href={`/author/${encodeURIComponent(editorData.name)}`} className="flex items-center gap-2.5 md:gap-3 group cursor-pointer w-full sm:w-auto">
-                                                <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-red-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
+                                                <div className={`relative w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 border-2 overflow-hidden border-red-500/30 bg-slate-100 ${isDarkMode ? 'bg-slate-700' : 'bg-white'}`}>
                                                     {editorData.avatar ? (
-                                                        <img src={editorData.avatar} alt={editorData.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                                                        <Image src={editorData.avatar} alt={editorData.name} fill className="object-cover group-hover:scale-110 transition-transform duration-300" sizes="40px" />
                                                     ) : (
                                                         <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                                                             <Zap className="w-4 h-4 md:w-5 md:h-5 fill-white text-white" />
@@ -758,9 +736,16 @@ export default function NewsDetail() {
                                                         <Clock className="w-2.5 h-2.5 md:w-3 md:h-3"/> {timeAgo(item.created_at)}
                                                     </span>
                                                 </div>
-                                                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 relative border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                <div className={`relative w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                    {/* 🔥 MESIN GILING UNTUK GAMBAR BERITA TERKAIT 🔥 */}
                                                     {item.image_url ? (
-                                                        <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Thumbnail" />
+                                                        <Image 
+                                                            src={item.image_url} 
+                                                            alt={item.title || 'Thumbnail'} 
+                                                            fill
+                                                            sizes="80px"
+                                                            className="object-cover group-hover:scale-110 transition-transform duration-500" 
+                                                        />
                                                     ) : (
                                                         <ImageIcon className={`w-5 h-5 md:w-6 md:h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} />
                                                     )}
@@ -821,19 +806,16 @@ export default function NewsDetail() {
                 </div>
             </footer>
 
-            {/* 🔥 NAVBAR MOBILE MODEL POP-UP 3D (FAB) - DIPERBARUI DENGAN UKURAN LEBIH KECIL DAN ANIMASI DENYUT 🔥 */}
             <div className="md:hidden fixed bottom-6 right-4 z-[95] flex flex-col items-end">
                 <AnimatePresence>
                     {isFabOpen && (
                         <>
-                            {/* Overlay Blur di Belakang Pop-up */}
                             <motion.div 
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                 className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[-1]"
                                 onClick={() => setIsFabOpen(false)}
                             />
 
-                            {/* Menu Tombol 3D */}
                             <motion.div 
                                 initial={{ opacity: 0, y: 40, scale: 0.5, rotateX: -60, transformPerspective: 800 }}
                                 animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
@@ -870,21 +852,20 @@ export default function NewsDetail() {
                     )}
                 </AnimatePresence>
 
-                {/* Tombol Utama (Petir SultraFiks) - DIPERBARUI: UKURAN LEBIH KECIL DAN ANIMASI DENYUT */}
                 <motion.button
                     whileTap={{ scale: 0.8 }}
                     onClick={() => setIsFabOpen(!isFabOpen)}
                     animate={{ 
                         rotate: isFabOpen ? 90 : 0,
-                        scale: isFabOpen ? 1 : [1, 1.06, 1], // Animasi denyut saat tertutup
+                        scale: isFabOpen ? 1 : [1, 1.06, 1],
                         boxShadow: isFabOpen 
                             ? "0 0 0 0px rgba(37,99,235,0)" 
-                            : ["0 5px 15px rgba(37,99,235,0.3)", "0 10px 25px rgba(37,99,235,0.5)", "0 5px 15px rgba(37,99,235,0.3)"] // Animasi pendaran saat tertutup
+                            : ["0 5px 15px rgba(37,99,235,0.3)", "0 10px 25px rgba(37,99,235,0.5)", "0 5px 15px rgba(37,99,235,0.3)"]
                     }}
                     transition={{ 
                         rotate: { type: "spring", stiffness: 260, damping: 20 },
-                        scale: { repeat: Infinity, duration: 2, ease: "easeInOut" }, // Looping denyut
-                        boxShadow: { repeat: Infinity, duration: 2, ease: "easeInOut" } // Looping pendaran
+                        scale: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+                        boxShadow: { repeat: Infinity, duration: 2, ease: "easeInOut" }
                     }}
                     className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 ${isFabOpen ? 'bg-slate-800 border-slate-700' : 'bg-blue-600 border-white dark:border-[#0B0F19]'}`}
                 >
