@@ -1,6 +1,6 @@
 import { ImageResponse } from '@vercel/og';
 
-export const runtime = 'edge'; // Mode Super Cepat
+export const runtime = 'edge'; // Mode Super Cepat agar WA tidak Timeout
 
 export async function GET(request) {
     try {
@@ -25,7 +25,7 @@ export async function GET(request) {
                         position: 'relative',
                     }}
                 >
-                    {/* FOTO BERITA (Langsung tembak URL biar WA tidak ngambek nunggu lama) */}
+                    {/* FOTO BERITA ASLI */}
                     <img
                         src={imageUrl}
                         style={{
@@ -50,7 +50,7 @@ export async function GET(request) {
                         }}
                     />
 
-                    {/* LOGO WATERMARK SULTRAFIKS DI POJOK KANAN BAWAH */}
+                    {/* 🔥 WATERMARK "SULTRAFIKS [GEN]" DI POJOK KANAN BAWAH 🔥 */}
                     <div
                         style={{
                             position: 'absolute',
@@ -71,13 +71,13 @@ export async function GET(request) {
                                 textShadow: '2px 4px 6px rgba(0,0,0,0.5)'
                             }}
                         >
-                            SULTRA<span style={{ color: '#3b82f6' }}>FIKS</span>
+                            SULTRA<span style={{ color: '#3b82f6' }}>FIKS</span> [GEN]
                         </span>
                     </div>
                 </div>
             ),
             {
-                width: 1200,
+                width: 1200, // Ukuran ideal Thumbnail WA/FB
                 height: 630,
             }
         );

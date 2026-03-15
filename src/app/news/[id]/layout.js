@@ -5,10 +5,12 @@ export async function generateMetadata({ params }) {
     const resolvedParams = await params;
     const rawSlug = decodeURIComponent(String(resolvedParams.id || resolvedParams.slug)).toLowerCase();
     
+    // Ambil data berita dari Supabase
     const { data: allNews } = await supabase.from('news').select('id, title, content, image_url');
 
     let currentArticle = null;
     if (allNews && allNews.length > 0) {
+        // Sistem Pencarian Anti Gagal
         const cleanSlugForMatch = rawSlug.replace(/[^a-z0-9]+/g, '');
         currentArticle = allNews.find(item => {
             if (!item.title) return false;
@@ -36,7 +38,7 @@ export async function generateMetadata({ params }) {
     // 1. Ambil Foto Asli
     const rawImageUrl = currentArticle.image_url || `${productionUrl}/logo.png`;
     
-    // 2. Masukkan Foto Asli ke Mesin Stempel (API OG) yang barusan kita buat
+    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL (TAPI WA BELUM LIHAT LINK INI) 🔥
     const watermarkedImageUrl = `${productionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}`;
     
     const articleUrl = `${productionUrl}/news/${rawSlug}`;
@@ -57,7 +59,7 @@ export async function generateMetadata({ params }) {
                     width: 1200,
                     height: 630,
                     alt: currentArticle.title,
-                    type: 'image/png', 
+                    type: 'image/png', // Panduan paksa untuk bot WA
                 },
             ],
             locale: 'id_ID',
