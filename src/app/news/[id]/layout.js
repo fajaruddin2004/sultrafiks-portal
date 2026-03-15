@@ -5,12 +5,10 @@ export async function generateMetadata({ params }) {
     const resolvedParams = await params;
     const rawSlug = decodeURIComponent(String(resolvedParams.id || resolvedParams.slug)).toLowerCase();
     
-    // Ambil data berita dari Supabase
-    const { data: allNews } = await supabase.from('news').select('id, title, content, image_url');
+    const { data: allNews } = await supabase.from('news').select('id, title, content, image_url').order('created_at', { ascending: false });
 
     let currentArticle = null;
     if (allNews && allNews.length > 0) {
-        // Sistem Pencarian Anti Gagal
         const cleanSlugForMatch = rawSlug.replace(/[^a-z0-9]+/g, '');
         currentArticle = allNews.find(item => {
             if (!item.title) return false;
@@ -38,8 +36,9 @@ export async function generateMetadata({ params }) {
     // 1. Ambil Foto Asli
     const rawImageUrl = currentArticle.image_url || `${productionUrl}/logo.png`;
     
-    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL (TAPI WA BELUM LIHAT LINK INI) 🔥
-    const watermarkedImageUrl = `${productionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}`;
+    // 🔥 TRIK RAHASIA UNTUK WHATSAPP 🔥
+    // Kita tambahkan &v=waktu dan &ext=.png di akhir link agar WA mengira ini file gambar asli yang baru!
+    const watermarkedImageUrl = `${productionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}&v=${Date.now()}&ext=.png`;
     
     const articleUrl = `${productionUrl}/news/${rawSlug}`;
 
@@ -52,14 +51,13 @@ export async function generateMetadata({ params }) {
             description: cleanDescription,
             url: articleUrl,
             siteName: 'SultraFiks',
-            // 🔥 WHATSAPP AKAN MENERIMA GAMBAR HASIL STEMPEL 🔥
             images: [
                 {
-                    url: watermarkedImageUrl, 
+                    url: watermarkedImageUrl, // Setor gambar stempel ke WA
                     width: 1200,
                     height: 630,
                     alt: currentArticle.title,
-                    type: 'image/png', // Panduan paksa untuk bot WA
+                    type: 'image/png', 
                 },
             ],
             locale: 'id_ID',
