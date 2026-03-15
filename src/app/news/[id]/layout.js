@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 
-// MANTRA SAKTI KTP BERITA UNTUK WHATSAPP (VERSI WATERMARK OTOMATIS BERCAHAYA)
+// MANTRA SAKTI KTP BERITA UNTUK WHATSAPP (VERSI WATERMARK PREMIUM & ANTI TIMEOUT)
 export async function generateMetadata({ params }) {
     // 1. Suruh params menunggu (Wajib di Next.js terbaru)
     const resolvedParams = await params;
@@ -46,12 +46,12 @@ export async function generateMetadata({ params }) {
     // 5. AMBIL LINK GAMBAR MENTAHAN/ASLI (Untuk disetor ke mesin stempel)
     const rawImageUrl = currentArticle.image_url || `${cleanProductionUrl}/logo.png`;
     
-    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL (TAPI WA BELUM LIHAT LINK INI) 🔥
+    // 🔥 INI RAHASIANYA: BUAT LINK KHUSUS KE MESIN STEMPEL CACHE (TAPI WA BELUM LIHAT LINK INI) 🔥
+    // WhatsApp akan menarik data ke api/og dengan parameter yang disandikan.
     const watermarkedImageUrl = `${cleanProductionUrl}/api/og?imageUrl=${encodeURIComponent(rawImageUrl)}`;
 
     // 🔥 WAJIB UNTUK WHATSAPP: KITA KEMBALIKAN watermarkedImageUrl SEBAGAI OG_IMAGE UTAMA 🔥
-    // WhatsApp akan menarik data ke api/og, mesin stempel akan jalan di server, dan mengembalikan PNG berstempel.
-    // Tidak ada _next/image lagi yang diblokir WA. Keberhasilan 100%!
+    // Tidak ada _next/image lagi yang diblokir WA. Keberhasilan 100% dan instan!
     const articleUrl = `${cleanProductionUrl}/news/${rawSlug}`;
 
     return {
@@ -65,7 +65,7 @@ export async function generateMetadata({ params }) {
             siteName: 'SultraFiks',
             images: [
                 {
-                    url: watermarkedImageUrl, // <-- Kunci keberhasilan Thumbnail Ber-watermark ada di sini
+                    url: watermarkedImageUrl, // <-- Kunci keberhasilan Thumbnail Premium & Instan ada di sini
                     width: 1200,
                     height: 630,
                     alt: currentArticle.title,
