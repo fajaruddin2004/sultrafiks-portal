@@ -625,19 +625,19 @@ function HomeContent() {
               <div className="flex flex-col gap-3">
                   <a href="#" className="flex items-center gap-3 group w-fit">
                       <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Facebook className="w-4 h-4 fill-white" /></div>
-                      <span className="text-slate-400 text-xs font-bold group-hover:text-[#1877F2] transition-colors">Facebook SultraFiks</span>
+                      <span className="text-slate-400 text-xs font-bold group-hover:text-[#1877F2] transition-colors"></span>
                   </a>
                   <a href="#" className="flex items-center gap-3 group w-fit">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Instagram className="w-4 h-4" /></div>
-                      <span className="text-slate-400 text-xs font-bold group-hover:text-pink-500 transition-colors">Instagram SultraFiks</span>
+                      <span className="text-slate-400 text-xs font-bold group-hover:text-pink-500 transition-colors"></span>
                   </a>
                   <a href="#" className="flex items-center gap-3 group w-fit">
                       <div className="w-8 h-8 rounded-full bg-[#FF0000] flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform"><Youtube className="w-4 h-4 fill-white" /></div>
-                      <span className="text-slate-400 text-xs font-bold group-hover:text-[#FF0000] transition-colors">YouTube SultraFiks</span>
+                      <span className="text-slate-400 text-xs font-bold group-hover:text-[#FF0000] transition-colors"></span>
                   </a>
                   <a href="#" className="flex items-center gap-3 group w-fit">
                       <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black shadow-md group-hover:scale-110 transition-transform"><TikTokIcon className="w-4 h-4" /></div>
-                      <span className="text-slate-400 text-xs font-bold group-hover:text-white transition-colors">TikTok SultraFiks</span>
+                      <span className="text-slate-400 text-xs font-bold group-hover:text-white transition-colors">s</span>
                   </a>
               </div>
             </div>
