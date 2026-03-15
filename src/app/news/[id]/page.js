@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @next/next/no-html-link-for-pages */
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
-import Image from 'next/image'; // 🔥 MEMANGGIL MESIN GILING GAMBAR OTOMATIS WEBP 🔥
+import Image from 'next/image'; 
 import { supabase } from '@/lib/supabase';
 import { useNews } from '@/context/NewsContext'; 
 import { useParams, useRouter } from 'next/navigation';
@@ -342,8 +343,6 @@ export default function NewsDetail() {
 
     const smartTags = ['Kendari', 'SultraFiks', article.category, 'Berita Terkini'];
 
-    // Schema Markup dipindah ke layout.js agar lebih aman (TIDAK DIPAKAI DI SINI LAGI)
-
     return (
         <div className={`min-h-screen font-sans pb-24 md:pb-0 relative transition-colors duration-300 ${isDarkMode ? 'bg-[#0B0F19] text-white' : 'bg-white text-slate-900'}`}>
             <motion.div className="fixed top-0 left-0 right-0 h-1 md:h-1.5 bg-blue-600 origin-left z-[60]" style={{ scaleX }} />
@@ -474,16 +473,17 @@ export default function NewsDetail() {
                         </div>
 
                         <div className="mb-4 w-full flex flex-col items-center group relative">
-                            {/* 🔥 MESIN GILING DI AKTIFKAN: UBAH IMG JADI IMAGE DARI NEXT.JS 🔥 */}
+                            {/* 🔥 MESIN GILING DI AKTIFKAN: GAMBAR FULL WIDTH TANPA SISI PUTIH 🔥 */}
                             {article?.image_url ? (
-                                <div className="relative w-full h-[300px] md:h-[500px] flex justify-center bg-transparent z-10 rounded-xl md:rounded-2xl overflow-hidden shadow-sm">
+                                <div className="relative w-full flex justify-center bg-transparent z-10">
                                     <Image 
                                         src={article.image_url} 
                                         alt={article?.title || 'Gambar Berita'} 
-                                        fill
+                                        width={800}
+                                        height={500}
                                         priority
                                         sizes="(max-width: 768px) 100vw, 800px"
-                                        className="object-contain" 
+                                        className="w-full h-auto max-h-[700px] object-cover rounded-xl md:rounded-2xl shadow-sm" 
                                     />
                                     {(!article?.photo_source || article.photo_source.trim() === '') && (
                                         <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4 flex items-center gap-1.5 pointer-events-none opacity-60 drop-shadow-2xl z-20">
@@ -737,7 +737,6 @@ export default function NewsDetail() {
                                                     </span>
                                                 </div>
                                                 <div className={`relative w-16 h-16 md:w-20 md:h-20 rounded-lg md:rounded-xl overflow-hidden shrink-0 border ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                    {/* 🔥 MESIN GILING UNTUK GAMBAR BERITA TERKAIT 🔥 */}
                                                     {item.image_url ? (
                                                         <Image 
                                                             src={item.image_url} 
